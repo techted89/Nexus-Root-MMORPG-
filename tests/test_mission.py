@@ -1,8 +1,6 @@
 import unittest
-import sys
-sys.path.append('src')
-from mission import Mission, MissionManager
-from player import Player
+from src.mission import Mission, MissionManager
+from src.player import Player
 
 class TestMission(unittest.TestCase):
     def test_mission_creation(self):
@@ -17,7 +15,7 @@ class TestMission(unittest.TestCase):
         mission = Mission("First Hack", "Hack into the megacorp server.", 100)
         mission.complete(player)
         self.assertTrue(mission.is_completed)
-        self.assertEqual(player.experience, 100)
+        self.assertEqual(player.vc_state.level, 2)
 
     def test_mission_manager(self):
         mission_manager = MissionManager()

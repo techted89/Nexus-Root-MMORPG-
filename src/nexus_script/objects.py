@@ -1,6 +1,16 @@
+import random
+
 class IP_Object:
-    def __init__(self, ip_address):
-        self.ip_address = ip_address
+    def __init__(self, octets):
+        if len(octets) != 4:
+            raise ValueError("IP address must have 4 octets")
+        self.octets = octets
+
+    def __str__(self):
+        return ".".join(map(str, self.octets))
+
+    def ping(self):
+        return random.choice([True, False])
 
 class Port_Object:
     def __init__(self, port_number, service):

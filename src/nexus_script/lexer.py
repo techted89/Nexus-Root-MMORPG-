@@ -7,6 +7,7 @@ class TokenType(Enum):
     LEFT_BRACE = '{'
     RIGHT_BRACE = '}'
     DOT = '.'
+    COMMA = ','
     EQUAL = '='
     # Literals
     IDENTIFIER = 'IDENTIFIER'
@@ -99,6 +100,8 @@ class Lexer:
             token = Token(TokenType.RIGHT_BRACE, self.ch)
         elif self.ch == '.':
             token = Token(TokenType.DOT, self.ch)
+        elif self.ch == ',':
+            token = Token(TokenType.COMMA, self.ch)
         elif self.ch == '=':
             token = Token(TokenType.EQUAL, self.ch)
         elif self.ch == '"':
