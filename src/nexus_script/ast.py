@@ -31,14 +31,3 @@ class StringLiteral(Expression):
 class NumberLiteral(Expression):
     def __init__(self, value):
         self.value = value
-
-class CallExpression(Expression):
-    def __init__(self, function, arguments, flags):
-        self.function = function
-        self.arguments = arguments
-        self.flags = flags
-
-class NewExpression(Expression):
-    def __init__(self, class_name, arguments):
-        self.class_name = class_name
-        self.arguments = arguments

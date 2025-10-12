@@ -2,6 +2,7 @@ class VC_State:
     def __init__(self):
         self.level = 1
         self.experience = 0
+        self.c_xp = 0
         self.credits = 0
         self.ram_max = 1
         self.cpu_max = 1
@@ -16,9 +17,7 @@ class VC_State:
             "ls": "INTEGRATED",
             "cat": "INTEGRATED",
             "print": "INTEGRATED",
-            "edit": "LOCKED",
-            "echo": "LOCKED",
-            "crack": "LOCKED",
+            "edit": "LOCKED"
         }
 
     def check_kmap(self, command):

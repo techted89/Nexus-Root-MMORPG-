@@ -7,13 +7,11 @@ class TokenType(Enum):
     LEFT_BRACE = '{'
     RIGHT_BRACE = '}'
     DOT = '.'
-    COMMA = ','
     EQUAL = '='
     # Literals
     IDENTIFIER = 'IDENTIFIER'
     STRING = 'STRING'
     NUMBER = 'NUMBER'
-    FLAG = 'FLAG'
     # Keywords
     SET = 'SET'
     NEW = 'NEW'
@@ -101,16 +99,11 @@ class Lexer:
             token = Token(TokenType.RIGHT_BRACE, self.ch)
         elif self.ch == '.':
             token = Token(TokenType.DOT, self.ch)
-        elif self.ch == ',':
-            token = Token(TokenType.COMMA, self.ch)
         elif self.ch == '=':
             token = Token(TokenType.EQUAL, self.ch)
         elif self.ch == '"':
             literal = self.read_string()
             token = Token(TokenType.STRING, literal)
-        elif self.ch == '-':
-            literal = self.read_flag()
-            token = Token(TokenType.FLAG, literal)
         elif self.ch == '':
             token = Token(TokenType.EOF, "")
         else:
@@ -143,11 +136,5 @@ class Lexer:
         self.read_char() # Consume the opening quote
         start_pos = self.position
         while self.ch != '"' and self.ch != '':
-            self.read_char()
-        return self.input[start_pos:self.position]
-
-    def read_flag(self):
-        start_pos = self.position
-        while self.ch.isalpha() or self.ch == '-':
             self.read_char()
         return self.input[start_pos:self.position]
