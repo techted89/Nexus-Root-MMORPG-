@@ -16,7 +16,9 @@ class VC_State:
             "ls": "INTEGRATED",
             "cat": "INTEGRATED",
             "print": "INTEGRATED",
-            "edit": "LOCKED"
+            "edit": "LOCKED",
+            "echo": "LOCKED",
+            "crack": "LOCKED",
         }
 
     def check_kmap(self, command):

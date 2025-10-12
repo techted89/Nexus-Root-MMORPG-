@@ -16,6 +16,10 @@ class Evaluator:
     def __init__(self, player):
         self.player = player
         self.environment = {}
+        self.aliases = {
+            "echo": "print",
+            "crack": "hashcrack",
+        }
         self.builtins = {
             "ls": self._ls,
             "cat": self._cat,
@@ -28,7 +32,8 @@ class Evaluator:
         self.virtual_fs = {
             "docs": {
                 "tutorial.txt": "Welcome to Nexus Root!",
-                "pivot_fragment.txt": "CMD_DECLARE: PIVOT"
+                "pivot_fragment.txt": "CMD_DECLARE: PIVOT",
+                "echo_fragment.txt": "ALIAS_DECLARE: echo",
             },
             "bin": {}
         }
@@ -54,6 +59,11 @@ class Evaluator:
             self.environment[node.name.value] = value
             return value
         elif isinstance(node, Identifier):
+            if node.value in self.aliases:
+                if self.player.check_kmap(node.value) == "LOCKED":
+                    return f"Command not found: {node.value}"
+                command = self.aliases[node.value]
+                return self.builtins[command]
             if node.value in self.builtins:
                 if self.player.check_kmap(node.value) == "LOCKED":
                     return f"Command not found: {node.value}"
@@ -68,7 +78,7 @@ class Evaluator:
             if not callable(func):
                 return f"Error: {node.function.value} is not a function"
             args = [self.eval(arg) for arg in node.arguments]
-            return func(args)
+            return func(args, node.flags)
         elif isinstance(node, NewExpression):
             if node.class_name == "IP":
                 args = [self.eval(arg) for arg in node.arguments]
@@ -81,7 +91,7 @@ class Evaluator:
             result = self.eval(statement)
         return result
 
-    def _ls(self, args):
+    def _ls(self, args, flags):
         path = args[0] if args else "."
         if path == ".":
             return "\n".join(self.virtual_fs.keys())
@@ -100,7 +110,7 @@ class Evaluator:
             return path
 
 
-    def _cat(self, args):
+    def _cat(self, args, flags):
         if not args:
             return "cat: missing operand"
         path = args[0]
@@ -113,19 +123,22 @@ class Evaluator:
                 return f"cat: cannot access '{path}': No such file or directory"
 
         if isinstance(current, str):
-            discovery = self.player.scan_file_for_fragment(current)
-            if discovery:
-                print(discovery)
+            if "-sf" in flags:
+                discovery = self.player.scan_file_for_fragment(current)
+                if discovery:
+                    return discovery
+                else:
+                    return "No fragments found."
             return current
         else:
             return f"cat: {path}: Is a directory"
 
 
-    def _print(self, args):
+    def _print(self, args, flags):
         print(*args)
         return None
 
-    def _edit(self, args):
+    def _edit(self, args, flags):
         if not args:
             return "edit: missing operand"
         filename = args[0]
@@ -135,7 +148,7 @@ class Evaluator:
         self.virtual_fs[filename] = content
         return f"File '{filename}' saved."
 
-    def _run(self, args):
+    def _run(self, args, flags):
         if not args:
             return "run: missing operand"
         filename = args[0]
@@ -158,7 +171,7 @@ class Evaluator:
 
         return self.eval(program)
 
-    def _hashcrack(self, args):
+    def _hashcrack(self, args, flags):
         if not self.player.is_vip:
             print("Cracking hash (standard algorithm)...")
             time.sleep(5)
@@ -166,7 +179,7 @@ class Evaluator:
             print("Cracking hash (quantum core)...")
         return "password123"
 
-    def _man(self, args):
+    def _man(self, args, flags):
         if not args:
             return "man: missing operand"
         command = args[0]

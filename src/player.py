@@ -20,6 +20,9 @@ class Player:
         if "CMD_DECLARE: PIVOT" in content:
             self.vc_state.kmap_state["pivot"] = "DISCOVERED"
             return "Knowledge fragment for 'pivot' discovered!"
+        if "ALIAS_DECLARE: echo" in content:
+            self.vc_state.kmap_state["echo"] = "DISCOVERED"
+            return "Alias 'echo' for command 'print' discovered!"
         return None
 
 if __name__ == '__main__':

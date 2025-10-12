@@ -100,26 +100,34 @@ class Parser:
         return NewExpression(class_name=class_name, arguments=arguments)
 
     def parse_call_expression(self, function):
-        return CallExpression(function=function, arguments=self.parse_expression_list(TokenType.RIGHT_PAREN))
+        arguments, flags = self.parse_expression_list(TokenType.RIGHT_PAREN)
+        return CallExpression(function=function, arguments=arguments, flags=flags)
 
     def parse_expression_list(self, end_token):
         args = []
+        flags = []
         if self.peek_token.type == end_token:
             self.next_token()
-            return args
+            return args, flags
 
         self.next_token()
-        args.append(self.parse_expression())
+        if self.current_token.type == TokenType.FLAG:
+            flags.append(self.current_token.literal)
+        else:
+            args.append(self.parse_expression())
 
         while self.peek_token.type == TokenType.COMMA:
             self.next_token()
             self.next_token()
-            args.append(self.parse_expression())
+            if self.current_token.type == TokenType.FLAG:
+                flags.append(self.current_token.literal)
+            else:
+                args.append(self.parse_expression())
 
         if not self.expect_peek(end_token):
             return None
 
-        return args
+        return args, flags
 
 
     def expect_peek(self, token_type):
