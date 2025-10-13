@@ -6,8 +6,8 @@ class Mission:
         self.is_completed = False
 
     def complete(self, player):
-        self.is_completed = True
         player.update_xp(self.reward)
+        self.is_completed = True
         print(f"Mission '{self.name}' completed! You gained {self.reward} experience.")
 
 class MissionManager:

@@ -6,6 +6,8 @@ from .ast import (
     Identifier,
     StringLiteral,
     NumberLiteral,
+    CallExpression,
+    NewExpression,
 )
 
 class Parser:
@@ -21,6 +23,13 @@ class Parser:
             TokenType.IDENTIFIER: self.parse_identifier,
             TokenType.STRING: self.parse_string_literal,
             TokenType.NUMBER: self.parse_number_literal,
+            TokenType.NEW: self.parse_new_expression,
+        }
+        self.infix_parse_fns = {
+            TokenType.LEFT_PAREN: self.parse_call_expression,
+        }
+        self.precedences = {
+            TokenType.LEFT_PAREN: 1
         }
 
     def next_token(self):
@@ -57,11 +66,21 @@ class Parser:
         stmt = ExpressionStatement(expression=self.parse_expression())
         return stmt
 
-    def parse_expression(self):
+    def parse_expression(self, precedence=0):
         prefix = self.prefix_parse_fns.get(self.current_token.type)
         if prefix is None:
             return None
-        return prefix()
+
+        left_exp = prefix()
+
+        while self.peek_token.type != TokenType.EOF and precedence < self.peek_precedence():
+            infix = self.infix_parse_fns.get(self.peek_token.type)
+            if infix is None:
+                return left_exp
+            self.next_token()
+            left_exp = infix(left_exp)
+
+        return left_exp
 
     def parse_identifier(self):
         return Identifier(value=self.current_token.literal)
@@ -71,6 +90,35 @@ class Parser:
 
     def parse_number_literal(self):
         return NumberLiteral(value=float(self.current_token.literal))
+
+    def parse_new_expression(self):
+        self.next_token() # consume 'new'
+        class_name = self.current_token.literal
+        self.next_token() # consume class name
+        arguments = self.parse_expression_list(TokenType.RIGHT_PAREN)
+        return NewExpression(class_name=class_name, arguments=arguments)
+
+    def parse_call_expression(self, function):
+        return CallExpression(function=function, arguments=self.parse_expression_list(TokenType.RIGHT_PAREN))
+
+    def parse_expression_list(self, end_token):
+        args = []
+        if self.peek_token.type == end_token:
+            self.next_token()
+            return args
+
+        self.next_token()
+        args.append(self.parse_expression())
+
+        while self.peek_token.type == TokenType.COMMA:
+            self.next_token()
+            self.next_token()
+            args.append(self.parse_expression())
+
+        if not self.expect_peek(end_token):
+            return None
+
+        return args
 
     def expect_peek(self, token_type):
         if self.peek_token.type == token_type:
@@ -83,3 +131,9 @@ class Parser:
     def peek_error(self, token_type):
         msg = f"expected next token to be {token_type}, got {self.peek_token.type} instead"
         self.errors.append(msg)
+
+    def peek_precedence(self):
+        return self.precedences.get(self.peek_token.type, 0)
+
+    def current_precedence(self):
+        return self.precedences.get(self.current_token.type, 0)

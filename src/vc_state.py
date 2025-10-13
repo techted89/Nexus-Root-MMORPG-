@@ -6,6 +6,10 @@ class VC_State:
         self.credits = 0
         self.ram_max = 1
         self.cpu_max = 1
+        self.theme = "default"
+        self.prompt_format = "{user}@nexus-root> "
+        self.skins = []
+        self.passive_mining_end_time = None
         self.kmap_state = {
             "set": "INTEGRATED",
             "scan": "LOCKED",

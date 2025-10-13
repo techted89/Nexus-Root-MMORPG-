@@ -8,16 +8,9 @@ class Player:
 
     def update_xp(self, amount):
         self.vc_state.experience += amount
-        # Level up every 100 experience points
         if self.vc_state.experience >= self.vc_state.level * 100:
             self.vc_state.level += 1
             print(f"Level up! You are now level {self.vc_state.level}.")
 
     def check_kmap(self, command):
         return self.vc_state.check_kmap(command)
-
-    def scan_file_for_fragment(self, content):
-        if "CMD_DECLARE: PIVOT" in content:
-            self.vc_state.kmap_state["pivot"] = "DISCOVERED"
-            return "Knowledge fragment for 'pivot' discovered!"
-        return None
