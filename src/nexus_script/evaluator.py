@@ -9,6 +9,8 @@ from .ast import (
     NewExpression,
 )
 from datetime import datetime, timedelta
+from ..upgrade_data import UPGRADE_DATA
+import time
 
 class Evaluator:
     def __init__(self, player, themes):
@@ -22,6 +24,9 @@ class Evaluator:
             "set-prompt": self._set_prompt,
             "mine-hash": self._mine_hash,
             "status": self._status,
+            "shop": self._shop,
+            "buy": self._buy,
+            "hashcrack": self._hashcrack,
         }
 
     def eval(self, node):
@@ -99,3 +104,54 @@ class Evaluator:
             else:
                 return "Passive mining complete. Run 'status' again to collect."
         return "No passive mining in progress."
+
+    def _shop(self, args):
+        output = "--- Hardware Shop ---\n"
+        for component, tiers in UPGRADE_DATA.items():
+            current_tier = getattr(self.player.vc_state, f"{component}_tier")
+            output += f"\n{component.upper()} (Current Tier: {current_tier})\n"
+            if current_tier < max(tiers.keys()):
+                next_tier_data = tiers[current_tier + 1]
+                output += f"  - Next Tier: {current_tier + 1}\n"
+                output += f"  - Cost: {next_tier_data['cost']} C\n"
+                if component == 'cpu':
+                    output += f"  - Effect: {next_tier_data['effect'] * 100}% speed\n"
+                elif component == 'ram':
+                    output += f"  - Effect: {next_tier_data['max_threads']} max threads\n"
+            else:
+                output += "  - Max tier reached.\n"
+        return output
+
+    def _buy(self, args):
+        if not args:
+            return "buy: missing component"
+
+        component = args[0]
+        if component not in UPGRADE_DATA:
+            return f"buy: unknown component '{component}'"
+
+        current_tier = getattr(self.player.vc_state, f"{component}_tier")
+        if current_tier >= max(UPGRADE_DATA[component].keys()):
+            return f"buy: {component} is already at max tier."
+
+        next_tier = current_tier + 1
+        cost = UPGRADE_DATA[component][next_tier]['cost']
+
+        if self.player.vc_state.credits < cost:
+            return f"buy: insufficient credits. Need {cost} C."
+
+        self.player.vc_state.credits -= cost
+        setattr(self.player.vc_state, f"{component}_tier", next_tier)
+
+        return f"Successfully purchased {component.upper()} Tier {next_tier}."
+
+    def _hashcrack(self, args):
+        if not self.player.is_vip:
+            cpu_tier = self.player.vc_state.cpu_tier
+            speed_multiplier = UPGRADE_DATA['cpu'][cpu_tier]['effect']
+            delay = 5 * speed_multiplier
+            print(f"Cracking hash (standard algorithm)... ETA: {delay:.2f}s")
+            time.sleep(delay)
+        else:
+            print("Cracking hash (quantum core)...")
+        return "password123"

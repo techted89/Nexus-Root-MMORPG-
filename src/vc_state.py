@@ -10,6 +10,10 @@ class VC_State:
         self.prompt_format = "{user}@nexus-root> "
         self.skins = []
         self.passive_mining_end_time = None
+        self.cpu_tier = 1
+        self.ram_tier = 1
+        self.nic_tier = 1
+        self.ssd_tier = 1
         self.kmap_state = {
             "set": "INTEGRATED",
             "scan": "LOCKED",
@@ -26,3 +30,7 @@ class VC_State:
 
     def check_kmap(self, command):
         return self.kmap_state.get(command, "LOCKED")
+
+    def get_max_threads(self):
+        from src.upgrade_data import UPGRADE_DATA
+        return UPGRADE_DATA['ram'][self.ram_tier]['max_threads']
