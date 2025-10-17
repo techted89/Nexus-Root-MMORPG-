@@ -1,6 +1,3 @@
-# Python
-__pycache__/
+server.log
 *.pyc
-
-# Database
 *.db

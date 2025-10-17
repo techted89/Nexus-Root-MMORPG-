@@ -2,10 +2,11 @@
 Player service layer
 """
 
+import sqlite3
 from typing import Optional, List, Dict, Any
 from ..models.player import Player
 from ..core.events import EventBus, Event, PlayerEvents
-from ..core.exceptions import ValidationError, InsufficientCreditsError
+from ..core.exceptions import ValidationError, InsufficientCreditsError, AuthenticationError
 from ..core.logger import NexusLogger
 
 class PlayerService:
@@ -56,8 +57,11 @@ class PlayerService:
         """Get player by name"""
         return self.repository.find_by_name(name)
     
-    def authenticate_player(self, name: str, session_id: str = None) -> Optional[Player]:
+    def authenticate_player(self, name: str, session_id: str = None, ip_address: str = None) -> Optional[Player]:
         """Authenticate player login"""
+        if self.is_ip_banned(ip_address):
+            raise AuthenticationError("Your IP address has been banned.")
+
         player = self.repository.find_by_name(name)
         if not player:
             return None
@@ -69,9 +73,27 @@ class PlayerService:
         
         # Handle login
         player.login(self.event_bus)
+        player.is_online = True
+        self.repository.save(player)
         self.logger.info(f"Player authenticated: {name}")
         
         return player
+
+    def is_ip_banned(self, ip_address: str) -> bool:
+        """Check if an IP address is banned"""
+        if not ip_address:
+            return False
+
+        try:
+            with sqlite3.connect(self.repository.db_path) as conn:
+                cursor = conn.execute(
+                    "SELECT 1 FROM banned_ips WHERE ip_address = ?",
+                    (ip_address,)
+                )
+                return cursor.fetchone() is not None
+        except sqlite3.Error as e:
+            self.logger.error(f"Failed to check if IP address {ip_address} is banned: {e}")
+            return False
     
     def logout_player(self, player: Player):
         """Handle player logout"""

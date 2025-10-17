@@ -6,16 +6,30 @@ import json
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from ..api.game_api import GameAPI
+from ..api.admin_api import AdminAPI
+from ..services.admin_service import AdminService
+from ..services.admin_auth_service import AdminAuthService
 from ..core.config import NexusConfig
 from ..core.logger import NexusLogger
 
-class GameAPIHandler(BaseHTTPRequestHandler):
+class CustomAPIHandler(BaseHTTPRequestHandler):
     """HTTP handler for Game API requests"""
     
-    def __init__(self, *args, game_api: GameAPI = None, **kwargs):
+    def __init__(self, *args, game_api: GameAPI = None, admin_api: AdminAPI = None, admin_auth_service: AdminAuthService = None, **kwargs):
         self.game_api = game_api
+        self.admin_api = admin_api
+        self.admin_auth_service = admin_auth_service
         super().__init__(*args, **kwargs)
     
+    def is_admin_authenticated(self):
+        """Check if the request is from an authenticated admin"""
+        auth_header = self.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return False
+
+        token = auth_header.split(" ")[1]
+        return self.admin_auth_service.is_authenticated(token)
+
     def do_GET(self):
         """Handle GET requests"""
         try:
@@ -28,6 +42,8 @@ class GameAPIHandler(BaseHTTPRequestHandler):
             
             if path == "/":
                 self.serve_index()
+            elif path == "/admin":
+                self.serve_admin_panel()
             elif path == "/api/status":
                 self.handle_status()
             elif path == "/api/leaderboard":
@@ -39,6 +55,23 @@ class GameAPIHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/player/"):
                 player_name = path.split("/")[-1]
                 self.handle_get_player(player_name)
+            elif path == "/api/announcement":
+                self.handle_get_announcement()
+            elif path == "/admin/api/login":
+                self.handle_admin_login(data)
+            elif path == "/admin/api/players":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                search = query_params.get("search")
+                sort = query_params.get("sort", "name")
+                order = query_params.get("order", "asc")
+                self.handle_get_all_players(search, sort, order)
+            elif path == "/admin/api/banned-players":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_get_banned_players()
             else:
                 self.send_error(404, "Not Found")
                 
@@ -51,11 +84,17 @@ class GameAPIHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
             
-            try:
-                data = json.loads(post_data.decode('utf-8')) if post_data else {}
-            except json.JSONDecodeError:
-                self.send_json_response({"success": False, "error": "Invalid JSON"}, 400)
-                return
+            content_type = self.headers.get('Content-Type', '')
+            if 'application/json' in content_type:
+                try:
+                    data = json.loads(post_data.decode('utf-8')) if post_data else {}
+                except json.JSONDecodeError:
+                    self.send_json_response({"success": False, "error": "Invalid JSON"}, 400)
+                    return
+            elif 'application/x-www-form-urlencoded' in content_type:
+                data = urllib.parse.parse_qs(post_data.decode('utf-8'))
+            else:
+                data = {}
             
             path = self.path
             
@@ -77,6 +116,39 @@ class GameAPIHandler(BaseHTTPRequestHandler):
                 self.handle_start_mining(data)
             elif path == "/api/mining/check":
                 self.handle_check_mining(data)
+            elif path.startswith("/admin/api/players/"):
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                parts = path.split("/")
+                player_id = parts[-2]
+                action = parts[-1]
+                if action == "ban":
+                    self.handle_ban_player(player_id)
+                elif action == "unban":
+                    self.handle_unban_player(player_id)
+                else:
+                    self.send_error(404, "Not Found")
+            elif path == "/admin/api/announcement":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_send_announcement(data)
+            elif path == "/admin/api/ips/ban":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_ban_ip(data)
+            elif path == "/admin/api/ips/unban":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_unban_ip(data)
+            elif path == "/admin/api/logout":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_admin_logout()
             else:
                 self.send_error(404, "Not Found")
                 
@@ -146,6 +218,12 @@ class GameAPIHandler(BaseHTTPRequestHandler):
                 <div class="method">POST /api/hardware/upgrade</div>
                 <div>Upgrade hardware: {"player_name": "...", "component": "cpu|ram|nic|ssd"}</div>
             </div>
+
+            <h2>Create New Player</h2>
+            <form action="/api/player/create" method="POST">
+                <input type="text" name="name" placeholder="Player Name">
+                <button type="submit">Create</button>
+            </form>
         </body>
         </html>
         """
@@ -154,7 +232,18 @@ class GameAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html")
         self.end_headers()
         self.wfile.write(html.encode('utf-8'))
-    
+
+    def serve_admin_panel(self):
+        """Serve admin panel"""
+        try:
+            with open("src/server/admin.html", "rb") as f:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(f.read())
+        except FileNotFoundError:
+            self.send_error(404, "Admin panel not found")
+
     def handle_status(self):
         """Handle status request"""
         result = {"success": True, "status": "running", "message": "Nexus Root API Server"}
@@ -174,10 +263,23 @@ class GameAPIHandler(BaseHTTPRequestHandler):
         """Handle get player request"""
         result = self.game_api.get_player_by_name(player_name)
         self.send_json_response(result)
+
+    def handle_get_announcement(self):
+        """Handle get announcement request"""
+        result = self.game_api.get_announcement()
+        self.send_json_response(result)
     
     def handle_create_player(self, data: dict):
         """Handle create player request"""
         name = data.get("name")
+        if isinstance(name, list):
+            name = name[0]
+
+        # The create_player method in the game_api expects a dictionary,
+        # but the form submission sends a dictionary where the values are lists.
+        # We need to convert the dictionary to the correct format.
+        if isinstance(data, dict) and all(isinstance(v, list) for v in data.values()):
+            data = {k: v[0] for k, v in data.items()}
         is_vip = data.get("is_vip", False)
         session_id = data.get("session_id")
         
@@ -197,7 +299,8 @@ class GameAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response({"success": False, "error": "Missing player name"}, 400)
             return
         
-        result = self.game_api.authenticate_player(name, session_id)
+        ip_address = self.client_address[0]
+        result = self.game_api.authenticate_player(name, session_id, ip_address)
         self.send_json_response(result)
     
     def handle_logout(self, data: dict):
@@ -282,6 +385,81 @@ class GameAPIHandler(BaseHTTPRequestHandler):
         result = self.game_api.check_passive_mining(player_name)
         self.send_json_response(result)
     
+    def handle_get_all_players(self, search: str, sort: str, order: str):
+        """Handle get all players request"""
+        result = self.admin_api.get_all_players(search, sort, order)
+        self.send_json_response(result)
+
+    def handle_get_banned_players(self):
+        """Handle get banned players request"""
+        result = self.admin_api.get_banned_players()
+        self.send_json_response(result)
+
+    def handle_ban_player(self, player_id: str):
+        """Handle ban player request"""
+        result = self.admin_api.ban_player(player_id)
+        self.send_json_response(result)
+
+    def handle_unban_player(self, player_id: str):
+        """Handle unban player request"""
+        result = self.admin_api.unban_player(player_id)
+        self.send_json_response(result)
+
+    def handle_send_announcement(self, data: dict):
+        """Handle send announcement request"""
+        message = data.get("message")
+
+        if not message:
+            self.send_json_response({"success": False, "error": "Missing message"}, 400)
+            return
+
+        result = self.admin_api.send_announcement(message)
+        self.send_json_response(result)
+
+    def handle_admin_login(self, data: dict):
+        """Handle admin login request"""
+        username = data.get("username")
+        password = data.get("password")
+
+        if not username or not password:
+            self.send_json_response({"success": False, "error": "Missing username or password"}, 400)
+            return
+
+        try:
+            token = self.admin_auth_service.authenticate(username, password)
+            self.send_json_response({"success": True, "token": token})
+        except Exception as e:
+            self.send_json_response({"success": False, "error": str(e)}, 401)
+
+    def handle_admin_logout(self):
+        """Handle admin logout request"""
+        auth_header = self.headers.get("Authorization")
+        token = auth_header.split(" ")[1]
+        self.admin_auth_service.logout(token)
+        self.send_json_response({"success": True})
+
+    def handle_ban_ip(self, data: dict):
+        """Handle ban IP request"""
+        ip_address = data.get("ip_address")
+
+        if not ip_address:
+            self.send_json_response({"success": False, "error": "Missing ip_address"}, 400)
+            return
+
+        result = self.admin_api.ban_ip(ip_address)
+        self.send_json_response(result)
+
+    def handle_unban_ip(self, data: dict):
+        """Handle unban IP request"""
+        ip_address = data.get("ip_address")
+
+        if not ip_address:
+            self.send_json_response({"success": False, "error": "Missing ip_address"}, 400)
+            return
+
+        result = self.admin_api.unban_ip(ip_address)
+        self.send_json_response(result)
+
     def send_json_response(self, data: dict, status_code: int = 200):
         """Send JSON response"""
         response_json = json.dumps(data, indent=2)
@@ -318,9 +496,17 @@ class WebServer:
         # Initialize Game API
         self.game_api = GameAPI(config)
         
-        # Create handler class with game_api
+        # Initialize Admin API
+        player_repository = self.game_api.player_repository
+        admin_service = AdminService(player_repository)
+        self.admin_api = AdminAPI(self.game_api.player_service, admin_service)
+
+        # Initialize Admin Auth Service
+        self.admin_auth_service = AdminAuthService(config.database.database)
+
+        # Create handler class with game_api, admin_api, and admin_auth_service
         def handler_factory(*args, **kwargs):
-            return GameAPIHandler(*args, game_api=self.game_api, **kwargs)
+            return CustomAPIHandler(*args, game_api=self.game_api, admin_api=self.admin_api, admin_auth_service=self.admin_auth_service, **kwargs)
         
         self.handler_class = handler_factory
         
@@ -333,6 +519,7 @@ class WebServer:
             
             self.logger.info(f"Starting server on {self.config.server.host}:{self.config.server.port}")
             print(f"Nexus Root API Server running on http://{self.config.server.host}:{self.config.server.port}")
+            print(f"Admin Panel available at http://{self.config.server.host}:{self.config.server.port}/admin")
             print("Press Ctrl+C to stop the server")
             
             httpd.serve_forever()
