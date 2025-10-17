@@ -1,0 +1,26 @@
+{
+  "database": {
+    "type": "sqlite",
+    "host": "localhost",
+    "port": 5432,
+    "database": "nexus_root.db",
+    "username": "",
+    "password": "",
+    "pool_size": 5
+  },
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "debug": false,
+    "workers": 1
+  },
+  "game": {
+    "max_players": 1000,
+    "max_threads_per_player": 10,
+    "credit_multiplier": 1.0,
+    "xp_multiplier": 1.0,
+    "passive_mining_enabled": true
+  },
+  "log_level": "INFO",
+  "log_file": "nexus.log"
+}

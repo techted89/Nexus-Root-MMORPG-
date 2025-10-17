@@ -2,7 +2,7 @@ from .player import Player
 from .nexus_script.lexer import Lexer
 from .nexus_script.parser import Parser
 from .nexus_script.evaluator import Evaluator
-from .themes import THEMES
+from .nexus_script.themes import THEMES
 from datetime import datetime
 
 class NexusShell:

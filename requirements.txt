@@ -1,0 +1,10 @@
+# Core requirements for Nexus Root MMORPG
+dataclasses-json>=0.5.7
+typing-extensions>=4.0.0
+
+# Testing (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Web client dependencies (for examples)
+requests>=2.28.0
