@@ -32,6 +32,7 @@ class SQLitePlayerRepository(BaseRepository):
                         created_at TEXT NOT NULL,
                         last_login TEXT NOT NULL,
                         is_online BOOLEAN DEFAULT FALSE,
+                        password_hash TEXT,
                         data TEXT NOT NULL
                     )
                 """)
@@ -54,9 +55,11 @@ class SQLitePlayerRepository(BaseRepository):
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS sessions (
                         id TEXT PRIMARY KEY,
-                        admin_id TEXT NOT NULL,
+                        admin_id TEXT,
+                        player_id TEXT,
                         token TEXT UNIQUE NOT NULL,
-                        FOREIGN KEY (admin_id) REFERENCES admin_users (id)
+                        FOREIGN KEY (admin_id) REFERENCES admin_users (id),
+                        FOREIGN KEY (player_id) REFERENCES players (id)
                     )
                 """)
 
@@ -85,8 +88,8 @@ class SQLitePlayerRepository(BaseRepository):
                 # Insert or update
                 conn.execute("""
                     INSERT OR REPLACE INTO players 
-                    (id, name, is_vip, session_id, created_at, last_login, is_online, data)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, name, is_vip, session_id, created_at, last_login, is_online, password_hash, data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     player.id,
                     player.name,
@@ -95,6 +98,7 @@ class SQLitePlayerRepository(BaseRepository):
                     player.created_at.isoformat(),
                     player.last_login.isoformat(),
                     player.is_online,
+                    getattr(player, 'password_hash', None),
                     data_json
                 ))
                 

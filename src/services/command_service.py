@@ -5,9 +5,10 @@ Command execution service
 import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Callable
+from datetime import datetime
 from ..models.player import Player
 from ..core.events import EventBus, Event, GameEvents
-from ..core.exceptions import CommandNotFoundError, InsufficientResourcesError, ScriptExecutionError
+from ..core.exceptions import CommandNotFoundError, InsufficientResourcesError, ScriptExecutionError, CommandError
 from ..core.logger import NexusLogger
 
 class CommandResult:
@@ -50,6 +51,8 @@ class Command(ABC):
             return False, f"Command costs {self.resource_cost} credits"
         
         return True, "OK"
+
+from ..nexus_script.commands.dos_attack import DOSAttackCommand
 
 class SetCommand(Command):
     """Set variable command"""
@@ -196,8 +199,9 @@ class HashcrackCommand(Command):
 class CommandService:
     """Service for managing command execution"""
     
-    def __init__(self, event_bus: EventBus = None):
+    def __init__(self, event_bus: EventBus = None, player_service = None):
         self.event_bus = event_bus or EventBus()
+        self.player_service = player_service
         self.logger = NexusLogger.get_logger("command_service")
         self.commands: Dict[str, Command] = {}
         self.execution_context: Dict[str, Any] = {}
@@ -212,7 +216,8 @@ class CommandService:
             LsCommand(),
             CatCommand(),
             ScanCommand(),
-            HashcrackCommand()
+            HashcrackCommand(),
+            DOSAttackCommand(self.player_service)
         ]
         
         for command in commands:
@@ -260,6 +265,10 @@ class CommandService:
         args = parts[1:] if len(parts) > 1 else []
         
         try:
+            # Check if player's CPU is locked
+            if player.cpu_locked_until and player.cpu_locked_until > datetime.now():
+                raise CommandError(f"CPU is locked. Time remaining: {player.cpu_locked_until - datetime.now()}")
+
             # Find command
             command = self.get_command(command_name)
             if not command:

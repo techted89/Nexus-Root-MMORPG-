@@ -33,7 +33,7 @@ class GameAPI:
         
         # Initialize services
         self.player_service = PlayerService(self.player_repository, self.event_bus)
-        self.command_service = CommandService(self.event_bus)
+        self.command_service = CommandService(self.event_bus, self.player_service)
         self.mission_service = MissionService(self.mission_repository, self.event_bus)
         
         # Setup event handlers

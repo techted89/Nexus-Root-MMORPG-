@@ -30,7 +30,7 @@ class PlayerStats:
 @dataclass
 class KnowledgeMap:
     """Player's knowledge map (K-Map) for commands and concepts"""
-    integrated_commands: List[str] = field(default_factory=lambda: ["set", "ls", "cat", "print"])
+    integrated_commands: List[str] = field(default_factory=lambda: ["set", "ls", "cat", "print", "dos_attack"])
     unlocked_commands: List[str] = field(default_factory=list)
     locked_commands: List[str] = field(default_factory=lambda: [
         "scan", "run", "hashcrack", "pivot", "thread spawn", "raw", "edit"
@@ -82,6 +82,7 @@ class Player:
             "theme": "default",
             "prompt_format": "{user}@nexus-root> "
         }
+        self.cpu_locked_until: Optional[datetime] = None
     
     def update_experience(self, amount: int, event_bus=None) -> bool:
         """Update player experience and handle level ups"""
@@ -210,7 +211,9 @@ class Player:
             "active_missions": self.active_missions,
             "completed_missions": self.completed_missions,
             "inventory": self.inventory,
-            "settings": self.settings
+            "settings": self.settings,
+            "password_hash": getattr(self, 'password_hash', None),
+            "cpu_locked_until": self.cpu_locked_until.isoformat() if self.cpu_locked_until else None
         }
     
     @classmethod
@@ -257,5 +260,8 @@ class Player:
         player.completed_missions = data.get("completed_missions", [])
         player.inventory = data.get("inventory", {})
         player.settings = data.get("settings", {"theme": "default", "prompt_format": "{user}@nexus-root> "})
+        player.password_hash = data.get("password_hash")
+        if data.get("cpu_locked_until"):
+            player.cpu_locked_until = datetime.fromisoformat(data["cpu_locked_until"])
         
         return player

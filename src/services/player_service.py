@@ -94,6 +94,14 @@ class PlayerService:
         except sqlite3.Error as e:
             self.logger.error(f"Failed to check if IP address {ip_address} is banned: {e}")
             return False
+
+    def lock_cpu(self, player, duration_seconds: int):
+        """Lock a player's CPU for a specified duration"""
+        from datetime import datetime, timedelta
+
+        player.cpu_locked_until = datetime.now() + timedelta(seconds=duration_seconds)
+        self.repository.save(player)
+        self.logger.info(f"Locked CPU for player {player.name} for {duration_seconds} seconds.")
     
     def logout_player(self, player: Player):
         """Handle player logout"""

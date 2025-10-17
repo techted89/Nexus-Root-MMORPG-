@@ -7,6 +7,8 @@ import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from ..api.game_api import GameAPI
 from ..api.admin_api import AdminAPI
+from ..api.auth_api import AuthAPI
+from ..services.auth_service import AuthService
 from ..services.admin_service import AdminService
 from ..services.admin_auth_service import AdminAuthService
 from ..core.config import NexusConfig
@@ -15,10 +17,11 @@ from ..core.logger import NexusLogger
 class CustomAPIHandler(BaseHTTPRequestHandler):
     """HTTP handler for Game API requests"""
     
-    def __init__(self, *args, game_api: GameAPI = None, admin_api: AdminAPI = None, admin_auth_service: AdminAuthService = None, **kwargs):
+    def __init__(self, *args, game_api: GameAPI = None, admin_api: AdminAPI = None, admin_auth_service: AdminAuthService = None, auth_api: AuthAPI = None, **kwargs):
         self.game_api = game_api
         self.admin_api = admin_api
         self.admin_auth_service = admin_auth_service
+        self.auth_api = auth_api
         super().__init__(*args, **kwargs)
     
     def is_admin_authenticated(self):
@@ -98,10 +101,12 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
             
             path = self.path
             
-            if path == "/api/player/create":
-                self.handle_create_player(data)
-            elif path == "/api/player/login":
+            if path == "/api/register":
+                self.handle_register(data)
+            elif path == "/api/login":
                 self.handle_login(data)
+            elif path == "/api/player/create":
+                self.handle_create_player(data)
             elif path == "/api/player/logout":
                 self.handle_logout(data)
             elif path == "/api/command/execute":
@@ -144,6 +149,8 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                     self.send_error(401, "Unauthorized")
                     return
                 self.handle_unban_ip(data)
+            elif path == "/admin/api/login":
+                self.handle_admin_login(data)
             elif path == "/admin/api/logout":
                 if not self.is_admin_authenticated():
                     self.send_error(401, "Unauthorized")
@@ -159,71 +166,184 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         """Serve index page"""
         html = """
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
-            <title>Nexus Root MMORPG API</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Nexus Root</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 40px; }
-                .endpoint { margin: 20px 0; padding: 10px; background: #f5f5f5; }
-                .method { font-weight: bold; color: #0066cc; }
+                body {
+                    background-color: #000;
+                    color: #0f0;
+                    font-family: 'Courier New', Courier, monospace;
+                    font-size: 16px;
+                }
+                #terminal {
+                    padding: 10px;
+                    height: 100vh;
+                    overflow-y: scroll;
+                }
+                .line {
+                    margin-bottom: 5px;
+                }
+                .prompt {
+                    color: #0f0;
+                }
+                #input-line {
+                    display: flex;
+                }
+                #input {
+                    background-color: transparent;
+                    border: none;
+                    color: #0f0;
+                    font-family: 'Courier New', Courier, monospace;
+                    font-size: 16px;
+                    flex-grow: 1;
+                }
+                #input:focus {
+                    outline: none;
+                }
             </style>
         </head>
         <body>
-            <h1>Nexus Root MMORPG API</h1>
-            <p>Welcome to the Nexus Root MMORPG API server.</p>
-            
-            <h2>Available Endpoints:</h2>
-            
-            <div class="endpoint">
-                <div class="method">GET /api/status</div>
-                <div>Get server status</div>
+            <div id="terminal">
+                <div class="line">Welcome to Nexus Root.</div>
+                <div class="line">Type 'help' for a list of commands.</div>
+                <div id="output"></div>
+                <div id="input-line">
+                    <span class="prompt">&gt; </span>
+                    <input type="text" id="input" autofocus>
+                </div>
             </div>
-            
-            <div class="endpoint">
-                <div class="method">GET /api/statistics</div>
-                <div>Get server statistics</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">GET /api/leaderboard?category=level&limit=10</div>
-                <div>Get player leaderboard</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">GET /api/player/{name}</div>
-                <div>Get player information</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/player/create</div>
-                <div>Create new player: {"name": "...", "is_vip": false}</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/player/login</div>
-                <div>Login player: {"name": "...", "session_id": "..."}</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/command/execute</div>
-                <div>Execute command: {"player_name": "...", "command": "..."}</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/mission/start</div>
-                <div>Start mission: {"player_name": "...", "mission_id": "..."}</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/hardware/upgrade</div>
-                <div>Upgrade hardware: {"player_name": "...", "component": "cpu|ram|nic|ssd"}</div>
-            </div>
+            <script>
+                const terminal = document.getElementById('terminal');
+                const output = document.getElementById('output');
+                const input = document.getElementById('input');
 
-            <h2>Create New Player</h2>
-            <form action="/api/player/create" method="POST">
-                <input type="text" name="name" placeholder="Player Name">
-                <button type="submit">Create</button>
-            </form>
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const command = input.value;
+                        input.value = '';
+
+                        const line = document.createElement('div');
+                        line.classList.add('line');
+                        line.innerHTML = `<span class="prompt">&gt; </span>${command}`;
+                        output.appendChild(line);
+
+                        handleCommand(command);
+
+                        terminal.scrollTop = terminal.scrollHeight;
+                    }
+                });
+
+                let sessionToken = null;
+
+                function handleCommand(command) {
+                    const parts = command.split(' ');
+                    const cmd = parts[0].toLowerCase();
+                    const args = parts.slice(1);
+
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('line');
+
+                    switch (cmd) {
+                        case 'help':
+                            responseLine.innerHTML = `
+                                <div>Available commands:</div>
+                                <div>- help: Show this help dialog</div>
+                                <div>- register &lt;username&gt; &lt;password&gt;: Create a new account</div>
+                                <div>- login &lt;username&gt; &lt;password&gt;: Log in to your account</div>
+                                <div>- dos_attack &lt;target_player&gt;: Launch a DoS attack against another player</div>
+                            `;
+                            break;
+                        case 'register':
+                            if (args.length === 2) {
+                                register(args[0], args[1]);
+                            } else {
+                                responseLine.textContent = 'Usage: register <username> <password>';
+                                output.appendChild(responseLine);
+                            }
+                            break;
+                        case 'login':
+                            if (args.length === 2) {
+                                login(args[0], args[1]);
+                            } else {
+                                responseLine.textContent = 'Usage: login <username> <password>';
+                                output.appendChild(responseLine);
+                            }
+                            break;
+                        case 'dos_attack':
+                            if (args.length === 1) {
+                                executeCommand(`dos_attack ${args[0]}`);
+                            } else {
+                                responseLine.textContent = 'Usage: dos_attack <target_player>';
+                                output.appendChild(responseLine);
+                            }
+                            break;
+                        default:
+                            responseLine.textContent = `Command not found: ${cmd}`;
+                    }
+
+                    if (cmd !== 'register' && cmd !== 'login') {
+                        output.appendChild(responseLine);
+                    }
+                }
+
+                async function register(username, password) {
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('line');
+                    responseLine.textContent = data.message;
+                    output.appendChild(responseLine);
+                }
+
+                async function login(username, password) {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('line');
+                    if (data.success) {
+                        sessionToken = data.token;
+                        responseLine.textContent = `Login successful. Welcome, ${username}.`;
+                    } else {
+                        responseLine.textContent = `Login failed: ${data.error}`;
+                    }
+                    output.appendChild(responseLine);
+                }
+
+                async function executeCommand(command) {
+                    const response = await fetch('/api/command/execute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${sessionToken}`
+                        },
+                        body: JSON.stringify({ command, player_name: 'test_user' })
+                    });
+                    const data = await response.json();
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('line');
+                    if (data.success) {
+                        responseLine.textContent = data.output;
+                    } else {
+                        responseLine.textContent = `Error: ${data.error}`;
+                    }
+                    output.appendChild(responseLine);
+                }
+            </script>
         </body>
         </html>
         """
@@ -268,7 +388,17 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         """Handle get announcement request"""
         result = self.game_api.get_announcement()
         self.send_json_response(result)
-    
+
+    def handle_register(self, data: dict):
+        """Handle register request"""
+        result = self.auth_api.register(data)
+        self.send_json_response(result)
+
+    def handle_login(self, data: dict):
+        """Handle login request"""
+        result = self.auth_api.login(data)
+        self.send_json_response(result)
+
     def handle_create_player(self, data: dict):
         """Handle create player request"""
         name = data.get("name")
@@ -290,19 +420,6 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         result = self.game_api.create_player(name, is_vip, session_id)
         self.send_json_response(result)
     
-    def handle_login(self, data: dict):
-        """Handle login request"""
-        name = data.get("name")
-        session_id = data.get("session_id")
-        
-        if not name:
-            self.send_json_response({"success": False, "error": "Missing player name"}, 400)
-            return
-        
-        ip_address = self.client_address[0]
-        result = self.game_api.authenticate_player(name, session_id, ip_address)
-        self.send_json_response(result)
-    
     def handle_logout(self, data: dict):
         """Handle logout request"""
         name = data.get("name")
@@ -319,9 +436,14 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         player_name = data.get("player_name")
         command = data.get("command")
         
-        if not player_name or not command:
-            self.send_json_response({"success": False, "error": "Missing player_name or command"}, 400)
+        if not command:
+            self.send_json_response({"success": False, "error": "Missing command"}, 400)
             return
+
+        if not player_name:
+            # Get the player name from the session token
+            # This is a placeholder for a real implementation.
+            player_name = "test_user"
         
         result = self.game_api.execute_command(player_name, command)
         self.send_json_response(result)
@@ -504,9 +626,13 @@ class WebServer:
         # Initialize Admin Auth Service
         self.admin_auth_service = AdminAuthService(config.database.database)
 
+        # Initialize Auth Service and API
+        auth_service = AuthService(config.database.database, self.game_api.player_repository)
+        self.auth_api = AuthAPI(auth_service)
+
         # Create handler class with game_api, admin_api, and admin_auth_service
         def handler_factory(*args, **kwargs):
-            return CustomAPIHandler(*args, game_api=self.game_api, admin_api=self.admin_api, admin_auth_service=self.admin_auth_service, **kwargs)
+            return CustomAPIHandler(*args, game_api=self.game_api, admin_api=self.admin_api, admin_auth_service=self.admin_auth_service, auth_api=self.auth_api, **kwargs)
         
         self.handler_class = handler_factory
         
