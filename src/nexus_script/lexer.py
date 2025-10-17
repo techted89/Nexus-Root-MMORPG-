@@ -7,6 +7,7 @@ class TokenType(Enum):
     LEFT_BRACE = '{'
     RIGHT_BRACE = '}'
     DOT = '.'
+    COMMA = ','
     EQUAL = '='
     # Literals
     IDENTIFIER = 'IDENTIFIER'
@@ -70,6 +71,9 @@ class Lexer:
             "edit": TokenType.EDIT,
             "exit": TokenType.EXIT,
             "status": TokenType.STATUS,
+            "set-theme": TokenType.IDENTIFIER,
+            "set-prompt": TokenType.IDENTIFIER,
+            "mine-hash": TokenType.IDENTIFIER,
         }
         self.read_char()
 
@@ -99,6 +103,8 @@ class Lexer:
             token = Token(TokenType.RIGHT_BRACE, self.ch)
         elif self.ch == '.':
             token = Token(TokenType.DOT, self.ch)
+        elif self.ch == ',':
+            token = Token(TokenType.COMMA, self.ch)
         elif self.ch == '=':
             token = Token(TokenType.EQUAL, self.ch)
         elif self.ch == '"':
@@ -122,7 +128,7 @@ class Lexer:
 
     def read_identifier(self):
         start_pos = self.position
-        while self.ch.isalpha() or self.ch.isdigit() or self.ch == '_' or self.ch == '$':
+        while self.ch.isalpha() or self.ch.isdigit() or self.ch == '_' or self.ch == '$' or self.ch == '-':
             self.read_char()
         return self.input[start_pos:self.position]
 
