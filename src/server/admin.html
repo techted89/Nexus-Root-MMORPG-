@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Panel</h1>
+        <button id="logout-button" style="display: none;">Logout</button>
+
+        <h2>All Players</h2>
+        <input type="text" id="search-input" placeholder="Search by name">
+        <table id="players-table">
+            <thead>
+                <tr>
+                    <th data-sort="id">ID</th>
+                    <th data-sort="name">Name</th>
+                    <th data-sort="stats.level">Level</th>
+                    <th data-sort="stats.credits">Credits</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h2>Banned Players</h2>
+        <table id="banned-players-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h2>Send Announcement</h2>
+        <form id="announcement-form">
+            <textarea id="announcement-message" rows="4" cols="50"></textarea>
+            <button type="submit">Send</button>
+        </form>
+
+        <h2>Ban IP Address</h2>
+        <form id="ban-ip-form">
+            <input type="text" id="ip-address-input" placeholder="IP Address">
+            <button type="submit">Ban</button>
+        </form>
+
+        <h2>Unban IP Address</h2>
+        <form id="unban-ip-form">
+            <input type="text" id="unban-ip-address-input" placeholder="IP Address">
+            <button type="submit">Unban</button>
+        </form>
+    </div>
+
+    <div id="login-modal" style="display: none;">
+        <h2>Admin Login</h2>
+        <form id="login-form">
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = "/admin/api";
+        let sessionToken = null;
+        let sortColumn = "name";
+        let sortOrder = "asc";
+
+        async function fetchAllPlayers() {
+            const search = document.querySelector("#search-input").value;
+            const response = await fetch(`${API_URL}/players?search=${search}&sort=${sortColumn}&order=${sortOrder}`, {
+                headers: {
+                    "Authorization": `Bearer ${sessionToken}`
+                }
+            });
+            const data = await response.json();
+
+            const tableBody = document.querySelector("#players-table tbody");
+            tableBody.innerHTML = "";
+
+            for (const player of data.data) {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${player.id}</td>
+                    <td>${player.name}</td>
+                    <td>${player.stats.level}</td>
+                    <td>${player.stats.credits}</td>
+                    <td>
+                        <button onclick="banPlayer('${player.id}')">Ban</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            }
+        }
+
+        async function fetchBannedPlayers() {
+            const response = await fetch(`${API_URL}/banned-players`, {
+                headers: {
+                    "Authorization": `Bearer ${sessionToken}`
+                }
+            });
+            const data = await response.json();
+
+            const tableBody = document.querySelector("#banned-players-table tbody");
+            tableBody.innerHTML = "";
+
+            for (const player of data.data) {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${player.id}</td>
+                    <td>${player.name}</td>
+                    <td>
+                        <button onclick="unbanPlayer('${player.id}')">Unban</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            }
+        }
+
+        async function banPlayer(playerId) {
+            const response = await fetch(`${API_URL}/players/${playerId}/ban`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${sessionToken}`
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                fetchAllPlayers();
+                fetchBannedPlayers();
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+
+        async function banIp(event) {
+            event.preventDefault();
+
+            const ipAddress = document.querySelector("#ip-address-input").value;
+
+            const response = await fetch(`${API_URL}/ips/ban`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${sessionToken}`
+                },
+                body: JSON.stringify({ ip_address: ipAddress })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert(data.message);
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+
+        async function unbanIp(event) {
+            event.preventDefault();
+
+            const ipAddress = document.querySelector("#unban-ip-address-input").value;
+
+            const response = await fetch(`${API_URL}/ips/unban`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${sessionToken}`
+                },
+                body: JSON.stringify({ ip_address: ipAddress })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert(data.message);
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+
+        async function unbanPlayer(playerId) {
+            const response = await fetch(`${API_URL}/players/${playerId}/unban`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${sessionToken}`
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                fetchAllPlayers();
+                fetchBannedPlayers();
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+
+        async function sendAnnouncement(event) {
+            event.preventDefault();
+
+            const message = document.querySelector("#announcement-message").value;
+
+            const response = await fetch(`${API_URL}/announcement`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${sessionToken}`
+                },
+                body: JSON.stringify({ message })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                alert("Announcement sent successfully");
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+
+        async function login(event) {
+            event.preventDefault();
+
+            const username = document.querySelector("#username").value;
+            const password = document.querySelector("#password").value;
+
+            const response = await fetch(`${API_URL}/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                sessionToken = data.token;
+                document.querySelector("#login-modal").style.display = "none";
+                document.querySelector("#logout-button").style.display = "block";
+                fetchAllPlayers();
+                fetchBannedPlayers();
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+
+        async function logout() {
+            const response = await fetch(`${API_URL}/logout`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${sessionToken}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                sessionToken = null;
+                document.querySelector("#login-modal").style.display = "block";
+                document.querySelector("#logout-button").style.display = "none";
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const loginForm = document.querySelector("#login-form");
+            loginForm.addEventListener("submit", login);
+
+            const logoutButton = document.querySelector("#logout-button");
+            logoutButton.addEventListener("click", logout);
+
+            if (!sessionToken) {
+                document.querySelector("#login-modal").style.display = "block";
+            }
+
+            const announcementForm = document.querySelector("#announcement-form");
+            announcementForm.addEventListener("submit", sendAnnouncement);
+
+            const banIpForm = document.querySelector("#ban-ip-form");
+            banIpForm.addEventListener("submit", banIp);
+
+            const unbanIpForm = document.querySelector("#unban-ip-form");
+            unbanIpForm.addEventListener("submit", unbanIp);
+
+            const searchInput = document.querySelector("#search-input");
+            searchInput.addEventListener("input", fetchAllPlayers);
+
+            const tableHeaders = document.querySelectorAll("#players-table th[data-sort]");
+            for (const header of tableHeaders) {
+                header.addEventListener("click", () => {
+                    const column = header.dataset.sort;
+                    if (sortColumn === column) {
+                        sortOrder = sortOrder === "asc" ? "desc" : "asc";
+                    } else {
+                        sortColumn = column;
+                        sortOrder = "asc";
+                    }
+                    fetchAllPlayers();
+                });
+            }
+        });
+    </script>
+</body>
+</html>

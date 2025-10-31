@@ -32,19 +32,46 @@ class SQLitePlayerRepository(BaseRepository):
                         created_at TEXT NOT NULL,
                         last_login TEXT NOT NULL,
                         is_online BOOLEAN DEFAULT FALSE,
+                        password_hash TEXT,
                         data TEXT NOT NULL
                     )
                 """)
                 
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS admin_users (
+                        id TEXT PRIMARY KEY,
+                        username TEXT UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL
+                    )
+                """)
+
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS banned_ips (
+                        id TEXT PRIMARY KEY,
+                        ip_address TEXT UNIQUE NOT NULL
+                    )
+                """)
+
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        id TEXT PRIMARY KEY,
+                        admin_id TEXT,
+                        player_id TEXT,
+                        token TEXT UNIQUE NOT NULL,
+                        FOREIGN KEY (admin_id) REFERENCES admin_users (id),
+                        FOREIGN KEY (player_id) REFERENCES players (id)
+                    )
+                """)
+
                 # Create indices
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_players_name ON players(name)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_players_session ON players(session_id)")
                 
                 conn.commit()
-                self.logger.debug("Initialized player tables")
+                self.logger.debug("Initialized player and admin tables")
                 
         except sqlite3.Error as e:
-            raise DatabaseError(f"Failed to initialize player tables: {str(e)}")
+            raise DatabaseError(f"Failed to initialize tables: {str(e)}")
     
     def save(self, player: Player) -> Player:
         """Save a player"""
@@ -61,8 +88,8 @@ class SQLitePlayerRepository(BaseRepository):
                 # Insert or update
                 conn.execute("""
                     INSERT OR REPLACE INTO players 
-                    (id, name, is_vip, session_id, created_at, last_login, is_online, data)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (id, name, is_vip, session_id, created_at, last_login, is_online, password_hash, data)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     player.id,
                     player.name,
@@ -71,6 +98,7 @@ class SQLitePlayerRepository(BaseRepository):
                     player.created_at.isoformat(),
                     player.last_login.isoformat(),
                     player.is_online,
+                    getattr(player, 'password_hash', None),
                     data_json
                 ))
                 

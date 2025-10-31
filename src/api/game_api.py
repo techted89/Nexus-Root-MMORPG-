@@ -33,7 +33,7 @@ class GameAPI:
         
         # Initialize services
         self.player_service = PlayerService(self.player_repository, self.event_bus)
-        self.command_service = CommandService(self.event_bus)
+        self.command_service = CommandService(self.event_bus, self.player_service)
         self.mission_service = MissionService(self.mission_repository, self.event_bus)
         
         # Setup event handlers
@@ -84,11 +84,31 @@ class GameAPI:
                 "error": e.message,
                 "code": e.code
             }
+
+    def get_announcement(self) -> Dict[str, Any]:
+        """Get the current announcement"""
+        try:
+            with open("announcement.txt", "r") as f:
+                message = f.read()
+            return {
+                "success": True,
+                "data": message
+            }
+        except FileNotFoundError:
+            return {
+                "success": True,
+                "data": ""
+            }
+        except IOError as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
     
-    def authenticate_player(self, name: str, session_id: str = None) -> Dict[str, Any]:
+    def authenticate_player(self, name: str, session_id: str = None, ip_address: str = None) -> Dict[str, Any]:
         """Authenticate a player"""
         try:
-            player = self.player_service.authenticate_player(name, session_id)
+            player = self.player_service.authenticate_player(name, session_id, ip_address)
             if not player:
                 raise AuthenticationError("Invalid player name")
             
@@ -469,7 +489,9 @@ class GameAPI:
         """Validate a player session"""
         try:
             player = self.player_service.get_player_by_name(player_name)
-            return player and player.session_id == session_id and player.is_online
+            if not player:
+                return False
+            return player.session_id == session_id and player.is_online
         except:
             return False
     

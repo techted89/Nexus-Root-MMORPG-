@@ -1,8 +1,11 @@
-from src.shell import NexusShell
+from src.server.web_server import WebServer
+from src.core.config import NexusConfig
 
 def main():
-    shell = NexusShell()
-    shell.main_loop()
+    """Main entry point"""
+    config = NexusConfig.load_from_file()
+    server = WebServer(config)
+    server.run()
 
 if __name__ == "__main__":
     main()

@@ -6,16 +6,33 @@ import json
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from ..api.game_api import GameAPI
+from ..api.admin_api import AdminAPI
+from ..api.auth_api import AuthAPI
+from ..services.auth_service import AuthService
+from ..services.admin_service import AdminService
+from ..services.admin_auth_service import AdminAuthService
 from ..core.config import NexusConfig
 from ..core.logger import NexusLogger
 
-class GameAPIHandler(BaseHTTPRequestHandler):
+class CustomAPIHandler(BaseHTTPRequestHandler):
     """HTTP handler for Game API requests"""
     
-    def __init__(self, *args, game_api: GameAPI = None, **kwargs):
+    def __init__(self, *args, game_api: GameAPI = None, admin_api: AdminAPI = None, admin_auth_service: AdminAuthService = None, auth_api: AuthAPI = None, **kwargs):
         self.game_api = game_api
+        self.admin_api = admin_api
+        self.admin_auth_service = admin_auth_service
+        self.auth_api = auth_api
         super().__init__(*args, **kwargs)
     
+    def is_admin_authenticated(self):
+        """Check if the request is from an authenticated admin"""
+        auth_header = self.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return False
+
+        token = auth_header.split(" ")[1]
+        return self.admin_auth_service.is_authenticated(token)
+
     def do_GET(self):
         """Handle GET requests"""
         try:
@@ -28,6 +45,8 @@ class GameAPIHandler(BaseHTTPRequestHandler):
             
             if path == "/":
                 self.serve_index()
+            elif path == "/admin":
+                self.serve_admin_panel()
             elif path == "/api/status":
                 self.handle_status()
             elif path == "/api/leaderboard":
@@ -39,6 +58,23 @@ class GameAPIHandler(BaseHTTPRequestHandler):
             elif path.startswith("/api/player/"):
                 player_name = path.split("/")[-1]
                 self.handle_get_player(player_name)
+            elif path == "/api/announcement":
+                self.handle_get_announcement()
+            elif path == "/admin/api/login":
+                self.handle_admin_login(data)
+            elif path == "/admin/api/players":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                search = query_params.get("search")
+                sort = query_params.get("sort", "name")
+                order = query_params.get("order", "asc")
+                self.handle_get_all_players(search, sort, order)
+            elif path == "/admin/api/banned-players":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_get_banned_players()
             else:
                 self.send_error(404, "Not Found")
                 
@@ -51,18 +87,26 @@ class GameAPIHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
             
-            try:
-                data = json.loads(post_data.decode('utf-8')) if post_data else {}
-            except json.JSONDecodeError:
-                self.send_json_response({"success": False, "error": "Invalid JSON"}, 400)
-                return
+            content_type = self.headers.get('Content-Type', '')
+            if 'application/json' in content_type:
+                try:
+                    data = json.loads(post_data.decode('utf-8')) if post_data else {}
+                except json.JSONDecodeError:
+                    self.send_json_response({"success": False, "error": "Invalid JSON"}, 400)
+                    return
+            elif 'application/x-www-form-urlencoded' in content_type:
+                data = urllib.parse.parse_qs(post_data.decode('utf-8'))
+            else:
+                data = {}
             
             path = self.path
             
-            if path == "/api/player/create":
-                self.handle_create_player(data)
-            elif path == "/api/player/login":
+            if path == "/api/register":
+                self.handle_register(data)
+            elif path == "/api/login":
                 self.handle_login(data)
+            elif path == "/api/player/create":
+                self.handle_create_player(data)
             elif path == "/api/player/logout":
                 self.handle_logout(data)
             elif path == "/api/command/execute":
@@ -77,6 +121,41 @@ class GameAPIHandler(BaseHTTPRequestHandler):
                 self.handle_start_mining(data)
             elif path == "/api/mining/check":
                 self.handle_check_mining(data)
+            elif path.startswith("/admin/api/players/"):
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                parts = path.split("/")
+                player_id = parts[-2]
+                action = parts[-1]
+                if action == "ban":
+                    self.handle_ban_player(player_id)
+                elif action == "unban":
+                    self.handle_unban_player(player_id)
+                else:
+                    self.send_error(404, "Not Found")
+            elif path == "/admin/api/announcement":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_send_announcement(data)
+            elif path == "/admin/api/ips/ban":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_ban_ip(data)
+            elif path == "/admin/api/ips/unban":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_unban_ip(data)
+            elif path == "/admin/api/login":
+                self.handle_admin_login(data)
+            elif path == "/admin/api/logout":
+                if not self.is_admin_authenticated():
+                    self.send_error(401, "Unauthorized")
+                    return
+                self.handle_admin_logout()
             else:
                 self.send_error(404, "Not Found")
                 
@@ -87,65 +166,184 @@ class GameAPIHandler(BaseHTTPRequestHandler):
         """Serve index page"""
         html = """
         <!DOCTYPE html>
-        <html>
+        <html lang="en">
         <head>
-            <title>Nexus Root MMORPG API</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Nexus Root</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 40px; }
-                .endpoint { margin: 20px 0; padding: 10px; background: #f5f5f5; }
-                .method { font-weight: bold; color: #0066cc; }
+                body {
+                    background-color: #000;
+                    color: #0f0;
+                    font-family: 'Courier New', Courier, monospace;
+                    font-size: 16px;
+                }
+                #terminal {
+                    padding: 10px;
+                    height: 100vh;
+                    overflow-y: scroll;
+                }
+                .line {
+                    margin-bottom: 5px;
+                }
+                .prompt {
+                    color: #0f0;
+                }
+                #input-line {
+                    display: flex;
+                }
+                #input {
+                    background-color: transparent;
+                    border: none;
+                    color: #0f0;
+                    font-family: 'Courier New', Courier, monospace;
+                    font-size: 16px;
+                    flex-grow: 1;
+                }
+                #input:focus {
+                    outline: none;
+                }
             </style>
         </head>
         <body>
-            <h1>Nexus Root MMORPG API</h1>
-            <p>Welcome to the Nexus Root MMORPG API server.</p>
-            
-            <h2>Available Endpoints:</h2>
-            
-            <div class="endpoint">
-                <div class="method">GET /api/status</div>
-                <div>Get server status</div>
+            <div id="terminal">
+                <div class="line">Welcome to Nexus Root.</div>
+                <div class="line">Type 'help' for a list of commands.</div>
+                <div id="output"></div>
+                <div id="input-line">
+                    <span class="prompt">&gt; </span>
+                    <input type="text" id="input" autofocus>
+                </div>
             </div>
-            
-            <div class="endpoint">
-                <div class="method">GET /api/statistics</div>
-                <div>Get server statistics</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">GET /api/leaderboard?category=level&limit=10</div>
-                <div>Get player leaderboard</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">GET /api/player/{name}</div>
-                <div>Get player information</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/player/create</div>
-                <div>Create new player: {"name": "...", "is_vip": false}</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/player/login</div>
-                <div>Login player: {"name": "...", "session_id": "..."}</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/command/execute</div>
-                <div>Execute command: {"player_name": "...", "command": "..."}</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/mission/start</div>
-                <div>Start mission: {"player_name": "...", "mission_id": "..."}</div>
-            </div>
-            
-            <div class="endpoint">
-                <div class="method">POST /api/hardware/upgrade</div>
-                <div>Upgrade hardware: {"player_name": "...", "component": "cpu|ram|nic|ssd"}</div>
-            </div>
+            <script>
+                const terminal = document.getElementById('terminal');
+                const output = document.getElementById('output');
+                const input = document.getElementById('input');
+
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const command = input.value;
+                        input.value = '';
+
+                        const line = document.createElement('div');
+                        line.classList.add('line');
+                        line.innerHTML = `<span class="prompt">&gt; </span>${command}`;
+                        output.appendChild(line);
+
+                        handleCommand(command);
+
+                        terminal.scrollTop = terminal.scrollHeight;
+                    }
+                });
+
+                let sessionToken = null;
+
+                function handleCommand(command) {
+                    const parts = command.split(' ');
+                    const cmd = parts[0].toLowerCase();
+                    const args = parts.slice(1);
+
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('line');
+
+                    switch (cmd) {
+                        case 'help':
+                            responseLine.innerHTML = `
+                                <div>Available commands:</div>
+                                <div>- help: Show this help dialog</div>
+                                <div>- register &lt;username&gt; &lt;password&gt;: Create a new account</div>
+                                <div>- login &lt;username&gt; &lt;password&gt;: Log in to your account</div>
+                                <div>- dos_attack &lt;target_player&gt;: Launch a DoS attack against another player</div>
+                            `;
+                            break;
+                        case 'register':
+                            if (args.length === 2) {
+                                register(args[0], args[1]);
+                            } else {
+                                responseLine.textContent = 'Usage: register <username> <password>';
+                                output.appendChild(responseLine);
+                            }
+                            break;
+                        case 'login':
+                            if (args.length === 2) {
+                                login(args[0], args[1]);
+                            } else {
+                                responseLine.textContent = 'Usage: login <username> <password>';
+                                output.appendChild(responseLine);
+                            }
+                            break;
+                        case 'dos_attack':
+                            if (args.length === 1) {
+                                executeCommand(`dos_attack ${args[0]}`);
+                            } else {
+                                responseLine.textContent = 'Usage: dos_attack <target_player>';
+                                output.appendChild(responseLine);
+                            }
+                            break;
+                        default:
+                            responseLine.textContent = `Command not found: ${cmd}`;
+                    }
+
+                    if (cmd !== 'register' && cmd !== 'login') {
+                        output.appendChild(responseLine);
+                    }
+                }
+
+                async function register(username, password) {
+                    const response = await fetch('/api/register', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('line');
+                    responseLine.textContent = data.message;
+                    output.appendChild(responseLine);
+                }
+
+                async function login(username, password) {
+                    const response = await fetch('/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password })
+                    });
+                    const data = await response.json();
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('line');
+                    if (data.success) {
+                        sessionToken = data.token;
+                        responseLine.textContent = `Login successful. Welcome, ${username}.`;
+                    } else {
+                        responseLine.textContent = `Login failed: ${data.error}`;
+                    }
+                    output.appendChild(responseLine);
+                }
+
+                async function executeCommand(command) {
+                    const response = await fetch('/api/command/execute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${sessionToken}`
+                        },
+                        body: JSON.stringify({ command, player_name: 'test_user' })
+                    });
+                    const data = await response.json();
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('line');
+                    if (data.success) {
+                        responseLine.textContent = data.output;
+                    } else {
+                        responseLine.textContent = `Error: ${data.error}`;
+                    }
+                    output.appendChild(responseLine);
+                }
+            </script>
         </body>
         </html>
         """
@@ -154,7 +352,18 @@ class GameAPIHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html")
         self.end_headers()
         self.wfile.write(html.encode('utf-8'))
-    
+
+    def serve_admin_panel(self):
+        """Serve admin panel"""
+        try:
+            with open("src/server/admin.html", "rb") as f:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(f.read())
+        except FileNotFoundError:
+            self.send_error(404, "Admin panel not found")
+
     def handle_status(self):
         """Handle status request"""
         result = {"success": True, "status": "running", "message": "Nexus Root API Server"}
@@ -174,10 +383,33 @@ class GameAPIHandler(BaseHTTPRequestHandler):
         """Handle get player request"""
         result = self.game_api.get_player_by_name(player_name)
         self.send_json_response(result)
-    
+
+    def handle_get_announcement(self):
+        """Handle get announcement request"""
+        result = self.game_api.get_announcement()
+        self.send_json_response(result)
+
+    def handle_register(self, data: dict):
+        """Handle register request"""
+        result = self.auth_api.register(data)
+        self.send_json_response(result)
+
+    def handle_login(self, data: dict):
+        """Handle login request"""
+        result = self.auth_api.login(data)
+        self.send_json_response(result)
+
     def handle_create_player(self, data: dict):
         """Handle create player request"""
         name = data.get("name")
+        if isinstance(name, list):
+            name = name[0]
+
+        # The create_player method in the game_api expects a dictionary,
+        # but the form submission sends a dictionary where the values are lists.
+        # We need to convert the dictionary to the correct format.
+        if isinstance(data, dict) and all(isinstance(v, list) for v in data.values()):
+            data = {k: v[0] for k, v in data.items()}
         is_vip = data.get("is_vip", False)
         session_id = data.get("session_id")
         
@@ -186,18 +418,6 @@ class GameAPIHandler(BaseHTTPRequestHandler):
             return
         
         result = self.game_api.create_player(name, is_vip, session_id)
-        self.send_json_response(result)
-    
-    def handle_login(self, data: dict):
-        """Handle login request"""
-        name = data.get("name")
-        session_id = data.get("session_id")
-        
-        if not name:
-            self.send_json_response({"success": False, "error": "Missing player name"}, 400)
-            return
-        
-        result = self.game_api.authenticate_player(name, session_id)
         self.send_json_response(result)
     
     def handle_logout(self, data: dict):
@@ -216,9 +436,14 @@ class GameAPIHandler(BaseHTTPRequestHandler):
         player_name = data.get("player_name")
         command = data.get("command")
         
-        if not player_name or not command:
-            self.send_json_response({"success": False, "error": "Missing player_name or command"}, 400)
+        if not command:
+            self.send_json_response({"success": False, "error": "Missing command"}, 400)
             return
+
+        if not player_name:
+            # Get the player name from the session token
+            # This is a placeholder for a real implementation.
+            player_name = "test_user"
         
         result = self.game_api.execute_command(player_name, command)
         self.send_json_response(result)
@@ -282,6 +507,81 @@ class GameAPIHandler(BaseHTTPRequestHandler):
         result = self.game_api.check_passive_mining(player_name)
         self.send_json_response(result)
     
+    def handle_get_all_players(self, search: str, sort: str, order: str):
+        """Handle get all players request"""
+        result = self.admin_api.get_all_players(search, sort, order)
+        self.send_json_response(result)
+
+    def handle_get_banned_players(self):
+        """Handle get banned players request"""
+        result = self.admin_api.get_banned_players()
+        self.send_json_response(result)
+
+    def handle_ban_player(self, player_id: str):
+        """Handle ban player request"""
+        result = self.admin_api.ban_player(player_id)
+        self.send_json_response(result)
+
+    def handle_unban_player(self, player_id: str):
+        """Handle unban player request"""
+        result = self.admin_api.unban_player(player_id)
+        self.send_json_response(result)
+
+    def handle_send_announcement(self, data: dict):
+        """Handle send announcement request"""
+        message = data.get("message")
+
+        if not message:
+            self.send_json_response({"success": False, "error": "Missing message"}, 400)
+            return
+
+        result = self.admin_api.send_announcement(message)
+        self.send_json_response(result)
+
+    def handle_admin_login(self, data: dict):
+        """Handle admin login request"""
+        username = data.get("username")
+        password = data.get("password")
+
+        if not username or not password:
+            self.send_json_response({"success": False, "error": "Missing username or password"}, 400)
+            return
+
+        try:
+            token = self.admin_auth_service.authenticate(username, password)
+            self.send_json_response({"success": True, "token": token})
+        except Exception as e:
+            self.send_json_response({"success": False, "error": str(e)}, 401)
+
+    def handle_admin_logout(self):
+        """Handle admin logout request"""
+        auth_header = self.headers.get("Authorization")
+        token = auth_header.split(" ")[1]
+        self.admin_auth_service.logout(token)
+        self.send_json_response({"success": True})
+
+    def handle_ban_ip(self, data: dict):
+        """Handle ban IP request"""
+        ip_address = data.get("ip_address")
+
+        if not ip_address:
+            self.send_json_response({"success": False, "error": "Missing ip_address"}, 400)
+            return
+
+        result = self.admin_api.ban_ip(ip_address)
+        self.send_json_response(result)
+
+    def handle_unban_ip(self, data: dict):
+        """Handle unban IP request"""
+        ip_address = data.get("ip_address")
+
+        if not ip_address:
+            self.send_json_response({"success": False, "error": "Missing ip_address"}, 400)
+            return
+
+        result = self.admin_api.unban_ip(ip_address)
+        self.send_json_response(result)
+
     def send_json_response(self, data: dict, status_code: int = 200):
         """Send JSON response"""
         response_json = json.dumps(data, indent=2)
@@ -318,9 +618,21 @@ class WebServer:
         # Initialize Game API
         self.game_api = GameAPI(config)
         
-        # Create handler class with game_api
+        # Initialize Admin API
+        player_repository = self.game_api.player_repository
+        admin_service = AdminService(player_repository)
+        self.admin_api = AdminAPI(self.game_api.player_service, admin_service)
+
+        # Initialize Admin Auth Service
+        self.admin_auth_service = AdminAuthService(config.database.database)
+
+        # Initialize Auth Service and API
+        auth_service = AuthService(config.database.database, self.game_api.player_repository)
+        self.auth_api = AuthAPI(auth_service)
+
+        # Create handler class with game_api, admin_api, and admin_auth_service
         def handler_factory(*args, **kwargs):
-            return GameAPIHandler(*args, game_api=self.game_api, **kwargs)
+            return CustomAPIHandler(*args, game_api=self.game_api, admin_api=self.admin_api, admin_auth_service=self.admin_auth_service, auth_api=self.auth_api, **kwargs)
         
         self.handler_class = handler_factory
         
@@ -333,6 +645,7 @@ class WebServer:
             
             self.logger.info(f"Starting server on {self.config.server.host}:{self.config.server.port}")
             print(f"Nexus Root API Server running on http://{self.config.server.host}:{self.config.server.port}")
+            print(f"Admin Panel available at http://{self.config.server.host}:{self.config.server.port}/admin")
             print("Press Ctrl+C to stop the server")
             
             httpd.serve_forever()

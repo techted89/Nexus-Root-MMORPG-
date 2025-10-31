@@ -22,6 +22,10 @@ class CommandNotFoundError(NexusException):
     """Raised when a command is not found or locked"""
     pass
 
+class CommandError(NexusException):
+    """Raised when a command fails to execute"""
+    pass
+
 class InsufficientCreditsError(NexusException):
     """Raised when player doesn't have enough credits"""
     pass
