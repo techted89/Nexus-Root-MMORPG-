@@ -56,8 +56,13 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
             elif path == "/api/statistics":
                 self.handle_statistics()
             elif path.startswith("/api/player/"):
-                player_name = path.split("/")[-1]
-                self.handle_get_player(player_name)
+                parts = path.split("/")
+                player_name = parts[-2]
+                if parts[-1] == "missions":
+                    self.handle_get_active_missions(player_name)
+                else:
+                    player_name = path.split("/")[-1]
+                    self.handle_get_player(player_name)
             elif path == "/api/announcement":
                 self.handle_get_announcement()
             elif path == "/admin/api/login":
@@ -76,7 +81,8 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                     return
                 self.handle_get_banned_players()
             else:
-                self.send_error(404, "Not Found")
+                # Serve static files from the frontend directory
+                self.serve_static_file(path)
                 
         except Exception as e:
             self.send_json_response({"success": False, "error": str(e)}, 500)
@@ -164,194 +170,14 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
     
     def serve_index(self):
         """Serve index page"""
-        html = """
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Nexus Root</title>
-            <style>
-                body {
-                    background-color: #000;
-                    color: #0f0;
-                    font-family: 'Courier New', Courier, monospace;
-                    font-size: 16px;
-                }
-                #terminal {
-                    padding: 10px;
-                    height: 100vh;
-                    overflow-y: scroll;
-                }
-                .line {
-                    margin-bottom: 5px;
-                }
-                .prompt {
-                    color: #0f0;
-                }
-                #input-line {
-                    display: flex;
-                }
-                #input {
-                    background-color: transparent;
-                    border: none;
-                    color: #0f0;
-                    font-family: 'Courier New', Courier, monospace;
-                    font-size: 16px;
-                    flex-grow: 1;
-                }
-                #input:focus {
-                    outline: none;
-                }
-            </style>
-        </head>
-        <body>
-            <div id="terminal">
-                <div class="line">Welcome to Nexus Root.</div>
-                <div class="line">Type 'help' for a list of commands.</div>
-                <div id="output"></div>
-                <div id="input-line">
-                    <span class="prompt">&gt; </span>
-                    <input type="text" id="input" autofocus>
-                </div>
-            </div>
-            <script>
-                const terminal = document.getElementById('terminal');
-                const output = document.getElementById('output');
-                const input = document.getElementById('input');
-
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') {
-                        const command = input.value;
-                        input.value = '';
-
-                        const line = document.createElement('div');
-                        line.classList.add('line');
-                        line.innerHTML = `<span class="prompt">&gt; </span>${command}`;
-                        output.appendChild(line);
-
-                        handleCommand(command);
-
-                        terminal.scrollTop = terminal.scrollHeight;
-                    }
-                });
-
-                let sessionToken = null;
-
-                function handleCommand(command) {
-                    const parts = command.split(' ');
-                    const cmd = parts[0].toLowerCase();
-                    const args = parts.slice(1);
-
-                    const responseLine = document.createElement('div');
-                    responseLine.classList.add('line');
-
-                    switch (cmd) {
-                        case 'help':
-                            responseLine.innerHTML = `
-                                <div>Available commands:</div>
-                                <div>- help: Show this help dialog</div>
-                                <div>- register &lt;username&gt; &lt;password&gt;: Create a new account</div>
-                                <div>- login &lt;username&gt; &lt;password&gt;: Log in to your account</div>
-                                <div>- dos_attack &lt;target_player&gt;: Launch a DoS attack against another player</div>
-                            `;
-                            break;
-                        case 'register':
-                            if (args.length === 2) {
-                                register(args[0], args[1]);
-                            } else {
-                                responseLine.textContent = 'Usage: register <username> <password>';
-                                output.appendChild(responseLine);
-                            }
-                            break;
-                        case 'login':
-                            if (args.length === 2) {
-                                login(args[0], args[1]);
-                            } else {
-                                responseLine.textContent = 'Usage: login <username> <password>';
-                                output.appendChild(responseLine);
-                            }
-                            break;
-                        case 'dos_attack':
-                            if (args.length === 1) {
-                                executeCommand(`dos_attack ${args[0]}`);
-                            } else {
-                                responseLine.textContent = 'Usage: dos_attack <target_player>';
-                                output.appendChild(responseLine);
-                            }
-                            break;
-                        default:
-                            responseLine.textContent = `Command not found: ${cmd}`;
-                    }
-
-                    if (cmd !== 'register' && cmd !== 'login') {
-                        output.appendChild(responseLine);
-                    }
-                }
-
-                async function register(username, password) {
-                    const response = await fetch('/api/register', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ username, password })
-                    });
-                    const data = await response.json();
-                    const responseLine = document.createElement('div');
-                    responseLine.classList.add('line');
-                    responseLine.textContent = data.message;
-                    output.appendChild(responseLine);
-                }
-
-                async function login(username, password) {
-                    const response = await fetch('/api/login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ username, password })
-                    });
-                    const data = await response.json();
-                    const responseLine = document.createElement('div');
-                    responseLine.classList.add('line');
-                    if (data.success) {
-                        sessionToken = data.token;
-                        responseLine.textContent = `Login successful. Welcome, ${username}.`;
-                    } else {
-                        responseLine.textContent = `Login failed: ${data.error}`;
-                    }
-                    output.appendChild(responseLine);
-                }
-
-                async function executeCommand(command) {
-                    const response = await fetch('/api/command/execute', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${sessionToken}`
-                        },
-                        body: JSON.stringify({ command, player_name: 'test_user' })
-                    });
-                    const data = await response.json();
-                    const responseLine = document.createElement('div');
-                    responseLine.classList.add('line');
-                    if (data.success) {
-                        responseLine.textContent = data.output;
-                    } else {
-                        responseLine.textContent = `Error: ${data.error}`;
-                    }
-                    output.appendChild(responseLine);
-                }
-            </script>
-        </body>
-        </html>
-        """
-        
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        self.wfile.write(html.encode('utf-8'))
+        try:
+            with open("frontend/index.html", "rb") as f:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(f.read())
+        except FileNotFoundError:
+            self.send_error(404, "Index page not found")
 
     def serve_admin_panel(self):
         """Serve admin panel"""
@@ -363,6 +189,26 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                 self.wfile.write(f.read())
         except FileNotFoundError:
             self.send_error(404, "Admin panel not found")
+
+    def serve_static_file(self, path):
+        """Serve static files from the frontend directory"""
+        import mimetypes
+
+        # Security: Prevent directory traversal
+        if ".." in path:
+            self.send_error(403, "Forbidden")
+            return
+
+        filepath = f"frontend{path}"
+        try:
+            with open(filepath, "rb") as f:
+                self.send_response(200)
+                content_type, _ = mimetypes.guess_type(filepath)
+                self.send_header("Content-Type", content_type or "application/octet-stream")
+                self.end_headers()
+                self.wfile.write(f.read())
+        except FileNotFoundError:
+            self.send_error(404, "File Not Found")
 
     def handle_status(self):
         """Handle status request"""
@@ -382,6 +228,11 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
     def handle_get_player(self, player_name: str):
         """Handle get player request"""
         result = self.game_api.get_player_by_name(player_name)
+        self.send_json_response(result)
+
+    def handle_get_active_missions(self, player_name: str):
+        """Handle get active missions request"""
+        result = self.game_api.get_active_missions(player_name)
         self.send_json_response(result)
 
     def handle_get_announcement(self):

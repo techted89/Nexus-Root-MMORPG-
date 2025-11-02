@@ -8,7 +8,6 @@ from .ast import (
     CallExpression,
     NewExpression,
 )
-from .objects import IP_Object
 from datetime import datetime, timedelta
 from ..upgrade_data import UPGRADE_DATA
 import time
@@ -28,7 +27,6 @@ class Evaluator:
             "shop": self._shop,
             "buy": self._buy,
             "hashcrack": self._hashcrack,
-            "print": self._print,
         }
 
     def eval(self, node):
@@ -55,9 +53,7 @@ class Evaluator:
             args = [self.eval(arg) for arg in node.arguments]
             return func(args)
         elif isinstance(node, NewExpression):
-            if node.class_name == "IP":
-                args = [self.eval(arg) for arg in node.arguments]
-                return IP_Object(*args)
+            # Simplified for now
             return None
         return None
 
@@ -68,28 +64,12 @@ class Evaluator:
         return result
 
     def _ls(self, args):
-        import os
-        path = args[0] if args else "."
-        try:
-            # Security check: prevent directory traversal
-            if ".." in path:
-                return "ls: nice try ;)"
-            return "\n".join(os.listdir(path))
-        except FileNotFoundError:
-            return f"ls: cannot access '{path}': No such file or directory"
+        # TODO: Implement ls
+        pass
 
     def _cat(self, args):
-        if not args:
-            return "cat: missing operand"
-        filepath = args[0]
-        try:
-            # Security check: prevent directory traversal
-            if ".." in filepath:
-                return "cat: nice try ;)"
-            with open(filepath, 'r') as f:
-                return f.read()
-        except FileNotFoundError:
-            return f"cat: {filepath}: No such file or directory"
+        # TODO: Implement cat
+        pass
 
     def _set_theme(self, args):
         if not args:
@@ -175,6 +155,3 @@ class Evaluator:
         else:
             print("Cracking hash (quantum core)...")
         return "password123"
-
-    def _print(self, args):
-        return " ".join(map(str, args))
