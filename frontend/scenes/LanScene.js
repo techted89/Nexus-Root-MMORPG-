@@ -97,6 +97,7 @@ class LanScene extends Phaser.Scene {
     drawConnection(nodeA, nodeB) {
         const graphics = this.add.graphics();
         graphics.lineStyle(2, 0x00ff00, 1);
+        graphics.lineBetween(nodeA.x, nodeA.y, nodeB.x, nodeB.y);
         this.graphContainer.add(graphics);
     }
 

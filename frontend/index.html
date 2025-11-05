@@ -11,17 +11,31 @@
             margin: 0;
             padding: 0;
             display: flex;
-            flex-direction: column;
+            flex-direction: column-reverse; /* Puts terminal at the bottom */
             height: 100vh;
         }
+        #game-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allows clicks to go through to the game */
+            z-index: 10;
+        }
         #game-container {
-            flex: 1;
-            /* Phaser will fill this */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none; /* Hidden by default */
         }
         #terminal {
-            height: 200px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
             background-color: #050505;
-            border-top: 2px solid #0f0;
             padding: 10px;
             overflow-y: scroll;
             font-size: 16px;
@@ -85,12 +99,10 @@
             cursor: pointer;
         }
         #autocomplete {
-            position: absolute;
-            bottom: 30px; /* Position above the input line */
-            left: 20px;
             border: 1px solid #0f0;
             background-color: #050505;
-            display: none; /* Hidden by default */
+            max-height: 150px;
+            overflow-y: auto;
         }
         #autocomplete div {
             padding: 5px;
@@ -116,11 +128,18 @@
     </style>
 </head>
 <body>
-    <div id="game-container"></div>
+    <div id="game-overlay">
+        <div id="game-container"></div>
+    </div>
     <div id="terminal">
-        <div class="line">Welcome to Nexus Root. Type 'help' for a list of commands.</div>
-        <div id="output"></div>
+        <div id="output">
+            <div class="line">Welcome to Nexus Root. Type 'help' for a list of commands.</div>
+        </div>
         <div id="mobile-ui-bar">
+            <button onclick="toggleMapView()">Map</button>
+            <button onclick="insertCommand('scan')">scan</button>
+            <button onclick="insertCommand('connect')">connect</button>
+            <button onclick="insertCommand('run')">run</button>
             <button onclick="insertChar('|')">|</button>
             <button onclick="insertChar('&')">&</button>
             <button onclick="insertChar('$')">$</button>
@@ -191,6 +210,9 @@
         });
 
         async function executeCommand(command) {
+            commandHistory.unshift(command);
+            historyIndex = -1;
+
             if (command.trim().startsWith('man')) {
                 showManPage(command);
                 return;
@@ -219,6 +241,11 @@
             if (data.success) {
                 responseLine.textContent = data.output;
                 window.dispatchEvent(new CustomEvent('commandSuccess', { detail: data }));
+                // Dispatch resource update event
+                window.dispatchEvent(new CustomEvent('updateResources', { detail: { cpu: Math.random() * 100, ram: Math.random() * 100, credits: 100 } }));
+                if (navigator.vibrate) {
+                    navigator.vibrate(100); // Vibrate for 100ms
+                }
 
                 const copyButton = document.createElement('button');
                 copyButton.textContent = 'Copy';
@@ -258,6 +285,27 @@
             viewer.appendChild(closeButton);
 
             document.body.appendChild(viewer);
+        }
+
+        function toggleMapView() {
+            const gameContainer = document.getElementById('game-container');
+            const terminal = document.getElementById('terminal');
+            if (gameContainer.style.display === 'none' || gameContainer.style.display === '') {
+                gameContainer.style.display = 'block';
+                terminal.style.display = 'none';
+                if (game && !game.isBooted) {
+                    game.boot();
+                }
+            } else {
+                gameContainer.style.display = 'none';
+                terminal.style.display = 'flex';
+            }
+        }
+
+        function insertCommand(command) {
+            const input = document.getElementById('input');
+            input.value = command + ' ';
+            input.focus();
         }
 
         function insertChar(char) {
