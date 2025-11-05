@@ -60,6 +60,8 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                 player_name = parts[-2]
                 if parts[-1] == "missions":
                     self.handle_get_active_missions(player_name)
+                elif parts[-1] == "state":
+                    self.handle_get_player_state(player_name)
                 else:
                     player_name = path.split("/")[-1]
                     self.handle_get_player(player_name)
@@ -233,6 +235,11 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
     def handle_get_active_missions(self, player_name: str):
         """Handle get active missions request"""
         result = self.game_api.get_active_missions(player_name)
+        self.send_json_response(result)
+
+    def handle_get_player_state(self, player_name: str):
+        """Handle get player state request"""
+        result = self.game_api.get_player_state(player_name)
         self.send_json_response(result)
 
     def handle_get_announcement(self):

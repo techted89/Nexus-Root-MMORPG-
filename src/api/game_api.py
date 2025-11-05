@@ -205,13 +205,21 @@ class GameAPI:
             # Save player state after command
             self.player_service.repository.save(player)
             
-            return {
+            response_data = {
                 "success": result.success,
                 "output": result.output,
                 "error": result.error if not result.success else None,
                 "execution_time_ms": result.execution_time_ms,
                 "data": result.data
             }
+
+            if command_line.startswith("cat "):
+                response_data["data"] = {
+                    "type": "file_content",
+                    "content": result.output
+                }
+
+            return response_data
         except NexusException as e:
             return {
                 "success": False,
@@ -462,6 +470,32 @@ class GameAPI:
                 "code": e.code
             }
     
+    def get_player_state(self, player_name: str) -> Dict[str, Any]:
+        """Get player state"""
+        try:
+            player = self.player_service.get_player_by_name(player_name)
+            if not player:
+                return {
+                    "success": False,
+                    "error": "Player not found"
+                }
+
+            active_missions = self.mission_service.get_active_missions(player)
+
+            return {
+                "success": True,
+                "data": {
+                    "player": player.get_summary(),
+                    "active_missions": [mission.to_dict() for mission in active_missions]
+                }
+            }
+        except NexusException as e:
+            return {
+                "success": False,
+                "error": e.message,
+                "code": e.code
+            }
+
     def get_server_statistics(self) -> Dict[str, Any]:
         """Get server statistics"""
         try:

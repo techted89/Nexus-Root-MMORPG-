@@ -6,35 +6,113 @@ class LanScene extends Phaser.Scene {
     create() {
         this.add.text(100, 50, 'LAN Tree Chart', { fontSize: '32px', fill: '#0f0' });
 
-        this.fetchMissionData('test_user');
+        this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+            gameObject.x = dragX;
+            gameObject.y = dragY;
+        });
 
         const backButton = this.add.text(this.cameras.main.width - 150, 50, 'Back to Menu', { fontSize: '24px', fill: '#0f0' })
             .setOrigin(0.5)
             .setInteractive();
-        backButton.on('pointerdown', () => this.scene.start('MainMenuScene'));
+        backButton.on('pointerdown', () => {
+            window.removeEventListener('commandSuccess', this.handleCommandSuccess);
+            this.scene.start('MainMenuScene');
+        });
+
+        this.graphContainer = this.add.container(0, 0);
+
+        this.handleCommandSuccess = (event) => {
+            this.fetchGameState('test_user');
+            this.handleCommandResponse(event.detail);
+        };
+        window.addEventListener('commandSuccess', this.handleCommandSuccess);
+
+        this.fetchGameState('test_user');
     }
 
-    async fetchMissionData(playerName) {
+    async fetchGameState(playerName) {
         try {
-            const response = await fetch(`/api/player/${playerName}/missions`);
+            const response = await fetch(`/api/player/${playerName}/state`);
             const data = await response.json();
             if (data.success) {
-                this.renderTree(data.data[0]);
-            } else {
-                this.add.text(100, 150, `Error: ${data.error}`, { fontSize: '24px', fill: '#ff0000' });
+                this.graphContainer.removeAll(true);
+                this.renderGraph(data.data.active_missions[0]);
             }
         } catch (error) {
-            this.add.text(100, 150, 'Error fetching mission data.', { fontSize: '24px', fill: '#ff0000' });
+            console.error('Error fetching game state:', error);
         }
     }
 
-    renderTree(mission) {
-        let y = 150;
-        this.add.text(100, y, `Mission: ${mission.title} (${mission.status})`, { fontSize: '24px', fill: '#0f0' });
+    renderGraph(mission) {
+        let x = 150;
+        let y = 200;
 
-        mission.objectives.forEach((objective, index) => {
-            y += 50;
-            this.add.text(150 + index * 50, y, `- ${objective.description} (${objective.status})`, { fontSize: '20px', fill: '#0f0' });
+        // Player PC
+        const playerNode = this.createNode(x, y, { type: 'pc', name: 'Your PC' });
+
+        // Mission nodes
+        let previousNode = playerNode;
+        mission.nodes.forEach((nodeData, index) => {
+            x += 150;
+            const node = this.createNode(x, y, nodeData);
+            this.drawConnection(previousNode, node);
+            previousNode = node;
         });
+    }
+
+    createNode(x, y, nodeData) {
+        const icon = IconFactory.createIcon(this, 0, 0, nodeData.type);
+        const label = this.add.text(0, 40, nodeData.name, { fontSize: '16px', fill: '#0f0' }).setOrigin(0.5);
+        const node = this.add.container(x, y, [icon, label]);
+        node.setSize(64, 64);
+        node.setInteractive();
+        this.input.setDraggable(node);
+        node.setData('nodeData', nodeData);
+
+        node.on('pointerdown', (pointer) => {
+            if (pointer.rightButtonDown()) {
+                this.showInspectorPanel(nodeData);
+            }
+        });
+
+        return node;
+    }
+
+    drawConnection(nodeA, nodeB) {
+        const graphics = this.add.graphics();
+        graphics.lineStyle(2, 0x00ff00, 1);
+        graphics.lineBetween(nodeA.x, nodeA.y, nodeB.x, nodeB.y);
+    }
+
+    showInspectorPanel(nodeData) {
+        if (this.inspectorPanel) {
+            this.inspectorPanel.destroy();
+        }
+
+        const panel = this.add.container(this.cameras.main.width - 350, 100);
+        const background = this.add.graphics();
+        background.fillStyle(0x000000, 0.8);
+        background.fillRect(0, 0, 300, 400);
+        panel.add(background);
+
+        let y = 20;
+        const title = this.add.text(150, y, nodeData.name, { fontSize: '24px', fill: '#0f0' }).setOrigin(0.5);
+        panel.add(title);
+
+        y += 40;
+        const status = this.add.text(20, y, `Status: ${nodeData.status}`, { fontSize: '18px', fill: '#0f0' });
+        panel.add(status);
+
+        const closeButton = this.add.text(280, 10, 'X', { fontSize: '24px', fill: '#ff0000' }).setOrigin(0.5).setInteractive();
+        closeButton.on('pointerdown', () => panel.destroy());
+        panel.add(closeButton);
+
+        this.inspectorPanel = panel;
+    }
+
+    handleCommandResponse(response) {
+        if (response.data && response.data.type === 'file_content') {
+            this.scene.launch('NotepadScene', { content: response.data.content });
+        }
     }
 }

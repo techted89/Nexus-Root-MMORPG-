@@ -10,15 +10,109 @@
             font-family: 'Courier New', Courier, monospace;
             margin: 0;
             padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        #game-container {
+            flex: 1;
+            /* Phaser will fill this */
+        }
+        #terminal {
+            height: 200px;
+            background-color: #050505;
+            border-top: 2px solid #0f0;
+            padding: 10px;
+            overflow-y: scroll;
+            font-size: 16px;
+        }
+        .line {
+            margin-bottom: 5px;
+        }
+        .prompt {
+            color: #0f0;
+        }
+        #input-line {
+            display: flex;
+        }
+        #input {
+            background-color: transparent;
+            border: none;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            flex-grow: 1;
+        }
+        #input:focus {
+            outline: none;
         }
     </style>
 </head>
 <body>
+    <div id="game-container"></div>
+    <div id="terminal">
+        <div class="line">Welcome to Nexus Root. Type 'help' for a list of commands.</div>
+        <div id="output"></div>
+        <div id="input-line">
+            <span class="prompt">&gt; </span>
+            <input type="text" id="input" autofocus>
+        </div>
+    </div>
+
     <script src="scenes/MainMenuScene.js"></script>
     <script src="scenes/GameScene.js"></script>
     <script src="scenes/LanScene.js"></script>
     <script src="scenes/PvpScene.js"></script>
     <script src="scenes/SettingsScene.js"></script>
+    <script src="scenes/IconFactory.js"></script>
+    <script src="scenes/NotepadScene.js"></script>
     <script src="main.js"></script>
+
+    <script>
+        // CLI Handling Logic
+        const terminalOutput = document.getElementById('output');
+        const terminalInput = document.getElementById('input');
+        let sessionToken = null; // Will be set on login
+
+        terminalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const command = terminalInput.value;
+                terminalInput.value = '';
+
+                const line = document.createElement('div');
+                line.classList.add('line');
+                line.innerHTML = `<span class="prompt">&gt; </span>${command}`;
+                terminalOutput.appendChild(line);
+
+                executeCommand(command);
+
+                document.getElementById('terminal').scrollTop = document.getElementById('terminal').scrollHeight;
+            }
+        });
+
+        async function executeCommand(command) {
+            const response = await fetch('/api/command/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionToken}`
+                },
+                // Using a hardcoded player for now, this should be dynamic
+                body: JSON.stringify({ command, player_name: 'test_user' })
+            });
+            const data = await response.json();
+            const responseLine = document.createElement('div');
+            responseLine.classList.add('line');
+
+            if (data.success) {
+                responseLine.textContent = data.output;
+                // Emit an event for the Phaser game to know a command was successful
+                window.dispatchEvent(new CustomEvent('commandSuccess', { detail: data }));
+            } else {
+                responseLine.textContent = `Error: ${data.error}`;
+            }
+            terminalOutput.appendChild(responseLine);
+        }
+    </script>
 </body>
 </html>
