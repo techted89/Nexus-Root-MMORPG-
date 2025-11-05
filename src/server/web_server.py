@@ -65,6 +65,8 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                 else:
                     player_name = path.split("/")[-1]
                     self.handle_get_player(player_name)
+            elif path == "/api/pvp/state":
+                self.handle_get_pvp_state()
             elif path == "/api/announcement":
                 self.handle_get_announcement()
             elif path == "/admin/api/login":
@@ -240,6 +242,11 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
     def handle_get_player_state(self, player_name: str):
         """Handle get player state request"""
         result = self.game_api.get_player_state(player_name)
+        self.send_json_response(result)
+
+    def handle_get_pvp_state(self):
+        """Handle get pvp state request"""
+        result = self.game_api.get_pvp_state()
         self.send_json_response(result)
 
     def handle_get_announcement(self):

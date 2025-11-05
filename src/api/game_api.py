@@ -470,6 +470,22 @@ class GameAPI:
                 "code": e.code
             }
     
+    def get_pvp_state(self) -> Dict[str, Any]:
+        """Get PvP state"""
+        import random
+        statuses = ["Online", "Disabled", "Under Attack", "Compromised"]
+
+        team_a = [{"name": f"Player A{i}", "status": random.choice(statuses)} for i in range(1, 4)]
+        team_b = [{"name": f"Player B{i}", "status": random.choice(statuses)} for i in range(1, 4)]
+
+        return {
+            "success": True,
+            "data": {
+                "team_a": team_a,
+                "team_b": team_b
+            }
+        }
+
     def get_player_state(self, player_name: str) -> Dict[str, Any]:
         """Get player state"""
         try:

@@ -10,13 +10,13 @@ class MainMenuScene extends Phaser.Scene {
         const accountButton = this.add.text(this.cameras.main.width / 2, 300, 'Player Account', { fontSize: '32px', fill: '#0f0' })
             .setOrigin(0.5)
             .setInteractive();
-        accountButton.on('pointerdown', () => console.log('Player Account clicked'));
+        accountButton.on('pointerdown', () => this.scene.start('AccountScene'));
 
         // Premium Subscription Button
         const premiumButton = this.add.text(this.cameras.main.width / 2, 400, 'Upgrade to Premium', { fontSize: '32px', fill: '#0f0' })
             .setOrigin(0.5)
             .setInteractive();
-        premiumButton.on('pointerdown', () => console.log('Premium Subscription clicked'));
+        premiumButton.on('pointerdown', () => this.scene.start('PremiumScene'));
 
         // Settings Button
         const settingsButton = this.add.text(this.cameras.main.width / 2, 500, 'Settings', { fontSize: '32px', fill: '#0f0' })

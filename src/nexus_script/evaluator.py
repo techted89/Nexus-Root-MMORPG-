@@ -28,6 +28,10 @@ class Evaluator:
             "buy": self._buy,
             "hashcrack": self._hashcrack,
             "thread-spawn": self._thread_spawn,
+            "scan": self._scan,
+            "ping": self._ping,
+            "raw": self._raw,
+            "man": self._man,
         }
 
     def eval(self, node):
@@ -173,3 +177,66 @@ class Evaluator:
             return f"Successfully spawned thread for module '{module_name}'."
         else:
             return "Upgrade your RAM to spawn more threads."
+
+    def _scan(self, args):
+        if not args:
+            return "scan: missing target IP"
+
+        target_ip = args[0]
+        nic_tier = self.player.vc_state.nic_tier
+        speed = UPGRADE_DATA['nic'][nic_tier]['speed']
+
+        # Base delay of 5 seconds, reduced by NIC speed
+        delay = max(0.5, 5 - (speed / 100))
+
+        print(f"Scanning {target_ip} (ETA: {delay:.2f}s)...")
+        time.sleep(delay)
+
+        # Return a sample result
+        return "Scan complete. Open ports: 22 (SSH), 80 (HTTP), 443 (HTTPS)"
+
+    def _ping(self, args):
+        if not args:
+            return "ping: missing target IP"
+
+        target_ip = args[0]
+        return f"Pong from {target_ip}!"
+
+    def _raw(self, args):
+        if self.player.check_kmap("raw") == "LOCKED":
+            return "raw: command not found"
+
+        if len(args) < 2:
+            return "raw: missing target IP and data packet"
+
+        target_ip = args[0]
+        data_packet = args[1]
+
+        return f"Successfully sent raw packet to {target_ip}."
+
+    def _man(self, args):
+        if not args:
+            return "man: missing command name"
+
+        command = args[0]
+        if self.player.check_kmap(command) in ["LOCKED", "HIDDEN"]:
+            return f"man: command not found: {command}"
+
+        man_pages = {
+            "scan": "scan [ip_address]: Performs network discovery and port enumeration.",
+            "ping": "ping [ip_address]: Tests basic network connectivity.",
+            "raw": "raw [ip_address] [data_packet]: Sends a custom, low-level data packet.",
+            "man": "man [command]: Displays the manual page for a command.",
+            "shop": "shop: Displays the hardware upgrade shop.",
+            "buy": "buy [component]: Buys the next tier of a hardware component.",
+            "hashcrack": "hashcrack [hash]: Cracks a password hash.",
+            "thread-spawn": "thread-spawn [module]: Executes a module in a separate thread.",
+            "ls": "ls: Lists files in the current directory.",
+            "cat": "cat [file]: Displays the contents of a file.",
+            "set-theme": "set-theme [theme]: Sets the terminal theme.",
+            "set-prompt": "set-prompt [prompt]: Sets the terminal prompt.",
+            "mine-hash": "mine-hash [hours]: Starts passive hash mining.",
+            "status": "status: Displays the status of passive mining.",
+        }
+
+        return man_pages.get(command, f"man: no manual entry for {command}")
