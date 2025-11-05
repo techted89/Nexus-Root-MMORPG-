@@ -81,7 +81,7 @@ class LanScene extends Phaser.Scene {
 
         node.on('pointerdown', (pointer) => {
             if (pointer.rightButtonDown()) {
-                this.showInspectorPanel(nodeData);
+                this.showContextMenu(pointer, node);
             } else {
                 if (node.getData('children')) {
                     node.getData('children').forEach(child => {
@@ -97,7 +97,36 @@ class LanScene extends Phaser.Scene {
     drawConnection(nodeA, nodeB) {
         const graphics = this.add.graphics();
         graphics.lineStyle(2, 0x00ff00, 1);
-        graphics.lineBetween(nodeA.x, nodeA.y, nodeB.x, nodeB.y);
+        this.graphContainer.add(graphics);
+    }
+
+    showContextMenu(pointer, node) {
+        if (this.contextMenu) {
+            this.contextMenu.destroy();
+        }
+
+        const nodeData = node.getData('nodeData');
+        const commands = ['scan', 'ping', 'connect']; // Example commands
+
+        const menu = this.add.container(pointer.x, pointer.y);
+        const background = this.add.graphics();
+        background.fillStyle(0x000000, 0.8);
+        background.fillRect(0, 0, 150, commands.length * 30 + 10);
+        menu.add(background);
+
+        let y = 10;
+        commands.forEach(command => {
+            const commandText = this.add.text(10, y, command, { fontSize: '18px', fill: '#0f0' }).setInteractive();
+            commandText.on('pointerdown', () => {
+                const terminalInput = document.getElementById('input');
+                terminalInput.value = `${command} ${nodeData.name}`;
+                this.contextMenu.destroy();
+            });
+            menu.add(commandText);
+            y += 30;
+        });
+
+        this.contextMenu = menu;
     }
 
     showInspectorPanel(nodeData) {

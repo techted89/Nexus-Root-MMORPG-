@@ -24,14 +24,21 @@ class MainMenuScene extends Phaser.Scene {
             .setInteractive();
         settingsButton.on('pointerdown', () => this.scene.start('SettingsScene'));
 
+        // Shop Button
+        const shopButton = this.add.text(this.cameras.main.width / 2, 600, 'Shop', { fontSize: '32px', fill: '#0f0' })
+            .setOrigin(0.5)
+            .setInteractive()
+            .setName('shopButton'); // Add a name to the button
+        shopButton.on('pointerdown', () => this.scene.start('ShopScene'));
+
         // Start Game Button
-        const startButton = this.add.text(this.cameras.main.width / 2, 600, 'View LAN', { fontSize: '32px', fill: '#0f0' })
+        const startButton = this.add.text(this.cameras.main.width / 2, 700, 'View LAN', { fontSize: '32px', fill: '#0f0' })
             .setOrigin(0.5)
             .setInteractive();
         startButton.on('pointerdown', () => this.scene.start('LanScene'));
 
         // PvP Button
-        const pvpButton = this.add.text(this.cameras.main.width / 2, 700, '3v3 PvP Battle', { fontSize: '32px', fill: '#0f0' })
+        const pvpButton = this.add.text(this.cameras.main.width / 2, 800, '3v3 PvP Battle', { fontSize: '32px', fill: '#0f0' })
             .setOrigin(0.5)
             .setInteractive();
         pvpButton.on('pointerdown', () => this.scene.start('PvpScene'));

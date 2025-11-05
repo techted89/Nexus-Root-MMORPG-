@@ -168,7 +168,7 @@ class HashcrackCommand(Command):
         hash_value = args[0]
         
         # Simulate cracking time based on CPU tier
-        crack_time = 5.0
+        crack_time = 5.0 * player.virtual_computer.cpu.get_speed_multiplier()
         
         output = f"Cracking hash: {hash_value}\n"
         if player.is_vip:
