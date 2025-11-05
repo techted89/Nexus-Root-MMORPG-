@@ -24,13 +24,27 @@ UPGRADE_DATA = {
         10: {"cost": 32000, "max_threads": 5},
     },
     "nic": {
-        # Placeholder for future implementation
         1: {"cost": 0, "speed": 10},
         2: {"cost": 100, "speed": 25},
+        3: {"cost": 250, "speed": 50},
+        4: {"cost": 500, "speed": 100},
+        5: {"cost": 1000, "speed": 200},
+        6: {"cost": 2000, "speed": 400},
+        7: {"cost": 4000, "speed": 800},
+        8: {"cost": 8000, "speed": 1600},
+        9: {"cost": 16000, "speed": 3200},
+        10: {"cost": 32000, "speed": 5000},
     },
     "ssd": {
-        # Placeholder for future implementation
         1: {"cost": 0, "size": 100},
         2: {"cost": 100, "size": 250},
+        3: {"cost": 250, "size": 500},
+        4: {"cost": 500, "size": 1000},
+        5: {"cost": 1000, "size": 2000},
+        6: {"cost": 2000, "size": 4000},
+        7: {"cost": 4000, "size": 8000},
+        8: {"cost": 8000, "size": 16000},
+        9: {"cost": 16000, "size": 32000},
+        10: {"cost": 32000, "size": 64000},
     }
 }

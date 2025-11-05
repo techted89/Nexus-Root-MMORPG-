@@ -27,6 +27,7 @@ class Evaluator:
             "shop": self._shop,
             "buy": self._buy,
             "hashcrack": self._hashcrack,
+            "thread-spawn": self._thread_spawn,
         }
 
     def eval(self, node):
@@ -118,6 +119,10 @@ class Evaluator:
                     output += f"  - Effect: {next_tier_data['effect'] * 100}% speed\n"
                 elif component == 'ram':
                     output += f"  - Effect: {next_tier_data['max_threads']} max threads\n"
+                elif component == 'nic':
+                    output += f"  - Effect: {next_tier_data['speed']} Mbps\n"
+                elif component == 'ssd':
+                    output += f"  - Effect: {next_tier_data['size']} GB\n"
             else:
                 output += "  - Max tier reached.\n"
         return output
@@ -155,3 +160,16 @@ class Evaluator:
         else:
             print("Cracking hash (quantum core)...")
         return "password123"
+
+    def _thread_spawn(self, args):
+        if not args:
+            return "thread-spawn: missing module name"
+
+        module_name = args[0]
+        max_threads = self.player.vc_state.get_max_threads()
+
+        # For now, we'll just simulate the check
+        if max_threads > 1:
+            return f"Successfully spawned thread for module '{module_name}'."
+        else:
+            return "Upgrade your RAM to spawn more threads."

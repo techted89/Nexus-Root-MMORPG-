@@ -57,6 +57,16 @@ class LanScene extends Phaser.Scene {
             const node = this.createNode(x, y, nodeData);
             this.drawConnection(previousNode, node);
             previousNode = node;
+
+            if (nodeData.children) {
+                const children = nodeData.children.map((childData, childIndex) => {
+                    const childNode = this.createNode(x + 100, y + 100 + (childIndex * 100), childData);
+                    childNode.setVisible(false);
+                    this.drawConnection(node, childNode);
+                    return childNode;
+                });
+                node.setData('children', children);
+            }
         });
     }
 
@@ -72,6 +82,12 @@ class LanScene extends Phaser.Scene {
         node.on('pointerdown', (pointer) => {
             if (pointer.rightButtonDown()) {
                 this.showInspectorPanel(nodeData);
+            } else {
+                if (node.getData('children')) {
+                    node.getData('children').forEach(child => {
+                        child.setVisible(!child.visible);
+                    });
+                }
             }
         });
 
