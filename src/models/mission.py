@@ -24,6 +24,7 @@ class MissionType(Enum):
     DAILY = "daily"
     WEEKLY = "weekly"
     SPECIAL = "special"
+    PVP = "pvp"
 
 @dataclass
 class MissionReward:

@@ -57,6 +57,18 @@ class KnowledgeMap:
             return True
         return False
 
+    def scan_file_for_fragment(self, content: str) -> Optional[str]:
+        """Scan file content for knowledge fragments"""
+        import re
+        match = re.search(r"CMD_DECLARE: (\w+)", content)
+        if match:
+            command_name = match.group(1)
+            if command_name in self.locked_commands:
+                self.locked_commands.remove(command_name)
+                self.unlocked_commands.append(command_name)
+                return command_name
+        return None
+
 class Player:
     """Main player class"""
     

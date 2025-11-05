@@ -53,26 +53,12 @@ class Command(ABC):
         return True, "OK"
 
 from ..nexus_script.commands.dos_attack import DOSAttackCommand
-
-class SetCommand(Command):
-    """Set variable command"""
-    
-    def __init__(self):
-        super().__init__("set", "Set a variable value", "set <variable> = <value>")
-    
-    def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
-        if len(args) < 3 or args[1] != "=":
-            return CommandResult(False, error="Usage: set <variable> = <value>")
-        
-        var_name = args[0]
-        value = " ".join(args[2:])
-        
-        # Store in context (would normally be in execution environment)
-        if context is None:
-            context = {}
-        context[var_name] = value
-        
-        return CommandResult(True, f"Set {var_name} = {value}", data={"variable": var_name, "value": value})
+from ..nexus_script.commands.set import SetCommand
+from ..nexus_script.commands.run import RunCommand
+from ..nexus_script.commands.pivot import PivotCommand
+from ..nexus_script.commands.thread_spawn import ThreadSpawnCommand
+from ..nexus_script.commands.raw import RawCommand
+from ..nexus_script.commands.auto_defend import AutoDefendCommand
 
 class LsCommand(Command):
     """List directory contents command"""
@@ -110,7 +96,7 @@ class CatCommand(Command):
         # Simulated file contents
         file_contents = {
             "data.txt": "target_ip=192.168.1.100\nport=22\nservice=ssh",
-            "log.txt": "Connection established\nScanning ports...\nVulnerability found",
+            "log.txt": "Connection established\nScanning ports...\nVulnerability found\nCMD_DECLARE: scan",
             "config.cfg": "timeout=30\nretries=3\nverbose=true",
             "mission_brief.md": "# Mission: Network Reconnaissance\nScan the target network and identify vulnerabilities."
         }
@@ -118,7 +104,16 @@ class CatCommand(Command):
         if filename not in file_contents:
             return CommandResult(False, error=f"cat: {filename}: No such file or directory")
         
-        return CommandResult(True, file_contents[filename], data={"filename": filename})
+        content = file_contents[filename]
+
+        # Scan for knowledge fragments
+        unlocked_command = player.knowledge_map.scan_file_for_fragment(content)
+
+        output = content
+        if unlocked_command:
+            output += f"\n\n[Knowledge fragment for '{unlocked_command}' discovered!]"
+
+        return CommandResult(True, output, data={"filename": filename})
 
 class ScanCommand(Command):
     """Network scan command"""
@@ -173,7 +168,7 @@ class HashcrackCommand(Command):
         hash_value = args[0]
         
         # Simulate cracking time based on CPU tier
-        crack_time = 5.0 * player.virtual_computer.cpu.get_speed_multiplier()
+        crack_time = 5.0
         
         output = f"Cracking hash: {hash_value}\n"
         if player.is_vip:
@@ -212,12 +207,17 @@ class CommandService:
     def _register_builtin_commands(self):
         """Register built-in commands"""
         commands = [
-            SetCommand(),
+            SetCommand(self.player_service),
             LsCommand(),
             CatCommand(),
             ScanCommand(),
             HashcrackCommand(),
-            DOSAttackCommand(self.player_service)
+            DOSAttackCommand(self.player_service),
+            RunCommand(self.player_service),
+            PivotCommand(self.player_service),
+            ThreadSpawnCommand(self.player_service),
+            RawCommand(self.player_service),
+            AutoDefendCommand(self.player_service),
         ]
         
         for command in commands:

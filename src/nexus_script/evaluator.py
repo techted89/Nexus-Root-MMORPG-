@@ -32,6 +32,21 @@ class Evaluator:
             "ping": self._ping,
             "raw": self._raw,
             "man": self._man,
+            "find": self._find,
+            "echo": self._echo,
+            "ip-lookup": self._ip_lookup,
+            "decrypt": self._decrypt,
+            "proc-kill": self._proc_kill,
+            "vc-status": self._vc_status,
+            "log-read": self._log_read,
+            "vc-purge-logs": self._vc_purge_logs,
+            "firewall-set": self._firewall_set,
+            "vc-spoof": self._vc_spoof,
+            "fragment-synthesize": self._fragment_synthesize,
+            "extract": self._extract,
+            "share": self._share,
+            "vc-sync": self._vc_sync,
+            "vc-relay": self._vc_relay,
         }
 
     def eval(self, node):
@@ -239,4 +254,102 @@ class Evaluator:
             "status": "status: Displays the status of passive mining.",
         }
 
+        if len(args) > 1 and args[0] == "-a":
+            return "\n".join(man_pages.keys())
+
         return man_pages.get(command, f"man: no manual entry for {command}")
+
+    def _find(self, args):
+        if not args:
+            return "find: missing file pattern"
+
+        pattern = args[0]
+        import glob
+        return "\n".join(glob.glob(pattern, recursive=True))
+
+    def _echo(self, args):
+        if not args:
+            return ""
+
+        text = args[0]
+        if len(args) > 2 and args[1] == ">":
+            filepath = args[2]
+            try:
+                with open(filepath, 'w') as f:
+                    f.write(text)
+                return ""
+            except IOError as e:
+                return f"echo: {e}"
+        return text
+
+    def _ip_lookup(self, args):
+        if not args:
+            return "ip-lookup: missing domain name"
+
+        domain = args[0]
+        # Simulate a DNS lookup
+        import random
+        return f"10.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
+
+    def _decrypt(self, args):
+        if len(args) < 2:
+            return "decrypt: missing file and key"
+
+        return "File decrypted successfully."
+
+    def _proc_kill(self, args):
+        if not args:
+            return "proc-kill: missing process ID"
+
+        return "Process killed."
+
+    def _vc_status(self, args):
+        cpu_load = random.uniform(10, 90)
+        ram_usage = random.uniform(20, 80)
+        return f"VC Status: CPU Load: {cpu_load:.2f}%, RAM Usage: {ram_usage:.2f}%"
+
+    def _log_read(self, args):
+        if len(args) < 2:
+            return "log-read: missing target IP and log file"
+
+        return "Log file content."
+
+    def _vc_purge_logs(self, args):
+        if self.player.check_kmap("vc-purge-logs") == "LOCKED":
+            return "vc-purge-logs: command not found"
+        return "Logs purged."
+
+    def _firewall_set(self, args):
+        if not args:
+            return "firewall-set: missing rule"
+        return "Firewall rule set."
+
+    def _vc_spoof(self, args):
+        if self.player.check_kmap("vc-spoof") == "LOCKED":
+            return "vc-spoof: command not found"
+        return "IP address spoofed."
+
+    def _fragment_synthesize(self, args):
+        if self.player.check_kmap("fragment-synthesize") == "LOCKED":
+            return "fragment-synthesize: command not found"
+        return "Fragments synthesized."
+
+    def _extract(self, args):
+        if len(args) < 2:
+            return "extract: missing pattern and file"
+        return "Data extracted."
+
+    def _share(self, args):
+        if len(args) < 2:
+            return "share: missing item and teammate"
+        return "Item shared."
+
+    def _vc_sync(self, args):
+        if self.player.check_kmap("vc-sync") == "LOCKED":
+            return "vc-sync: command not found"
+        return "VCs synced."
+
+    def _vc_relay(self, args):
+        if self.player.check_kmap("vc-relay") == "LOCKED":
+            return "vc-relay: command not found"
+        return "VC relay active."

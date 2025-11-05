@@ -193,7 +193,7 @@ class SQLitePlayerRepository(BaseRepository):
         except sqlite3.Error as e:
             raise DatabaseError(f"Failed to find all players: {str(e)}")
     
-    def find_online_players(self) -> List[Player]:
+    def get_online_players(self) -> List[Player]:
         """Find all online players"""
         try:
             with sqlite3.connect(self.db_path) as conn:

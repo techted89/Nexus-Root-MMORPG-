@@ -472,11 +472,10 @@ class GameAPI:
     
     def get_pvp_state(self) -> Dict[str, Any]:
         """Get PvP state"""
-        import random
-        statuses = ["Online", "Disabled", "Under Attack", "Compromised"]
+        online_players = self.player_repository.get_online_players()
 
-        team_a = [{"name": f"Player A{i}", "status": random.choice(statuses)} for i in range(1, 4)]
-        team_b = [{"name": f"Player B{i}", "status": random.choice(statuses)} for i in range(1, 4)]
+        team_a = [{"name": p.name, "status": "Online" if p.is_online else "Offline"} for p in online_players if p.name.startswith("Player A")]
+        team_b = [{"name": p.name, "status": "Online" if p.is_online else "Offline"} for p in online_players if p.name.startswith("Player B")]
 
         return {
             "success": True,
