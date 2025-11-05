@@ -26,18 +26,12 @@ class Evaluator:
             "status": self._status,
             "shop": self._shop,
             "buy": self._buy,
-            "hashcrack": self._hashcrack,
-            "thread-spawn": self._thread_spawn,
-            "scan": self._scan,
-            "ping": self._ping,
-            "raw": self._raw,
             "man": self._man,
             "find": self._find,
             "echo": self._echo,
             "ip-lookup": self._ip_lookup,
             "decrypt": self._decrypt,
             "proc-kill": self._proc_kill,
-            "vc-status": self._vc_status,
             "log-read": self._log_read,
             "vc-purge-logs": self._vc_purge_logs,
             "firewall-set": self._firewall_set,
@@ -168,66 +162,6 @@ class Evaluator:
         setattr(self.player.vc_state, f"{component}_tier", next_tier)
 
         return f"Successfully purchased {component.upper()} Tier {next_tier}."
-
-    def _hashcrack(self, args):
-        if not self.player.is_vip:
-            cpu_tier = self.player.vc_state.cpu_tier
-            speed_multiplier = UPGRADE_DATA['cpu'][cpu_tier]['effect']
-            delay = 5 * speed_multiplier
-            print(f"Cracking hash (standard algorithm)... ETA: {delay:.2f}s")
-            time.sleep(delay)
-        else:
-            print("Cracking hash (quantum core)...")
-        return "password123"
-
-    def _thread_spawn(self, args):
-        if not args:
-            return "thread-spawn: missing module name"
-
-        module_name = args[0]
-        max_threads = self.player.vc_state.get_max_threads()
-
-        # For now, we'll just simulate the check
-        if max_threads > 1:
-            return f"Successfully spawned thread for module '{module_name}'."
-        else:
-            return "Upgrade your RAM to spawn more threads."
-
-    def _scan(self, args):
-        if not args:
-            return "scan: missing target IP"
-
-        target_ip = args[0]
-        nic_tier = self.player.vc_state.nic_tier
-        speed = UPGRADE_DATA['nic'][nic_tier]['speed']
-
-        # Base delay of 5 seconds, reduced by NIC speed
-        delay = max(0.5, 5 - (speed / 100))
-
-        print(f"Scanning {target_ip} (ETA: {delay:.2f}s)...")
-        time.sleep(delay)
-
-        # Return a sample result
-        return "Scan complete. Open ports: 22 (SSH), 80 (HTTP), 443 (HTTPS)"
-
-    def _ping(self, args):
-        if not args:
-            return "ping: missing target IP"
-
-        target_ip = args[0]
-        return f"Pong from {target_ip}!"
-
-    def _raw(self, args):
-        if self.player.check_kmap("raw") == "LOCKED":
-            return "raw: command not found"
-
-        if len(args) < 2:
-            return "raw: missing target IP and data packet"
-
-        target_ip = args[0]
-        data_packet = args[1]
-
-        return f"Successfully sent raw packet to {target_ip}."
 
     def _man(self, args):
         if not args:

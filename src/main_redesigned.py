@@ -42,14 +42,16 @@ def run_shell(args):
 def run_api_server(args):
     """Run the API server"""
     try:
+        import asyncio
         from .server.web_server import WebServer
-        
+        from .server.websocket_server import WebSocketServer
+
         # Load configuration
         if args.config:
             config = NexusConfig.load_from_file(args.config)
         else:
             config = NexusConfig.load_from_file()
-        
+
         # Override with command line arguments
         if args.host:
             config.server.host = args.host
@@ -58,11 +60,22 @@ def run_api_server(args):
         if args.debug:
             config.server.debug = True
             config.log_level = "DEBUG"
-        
-        # Create and start server
-        server = WebServer(config)
-        server.run()
-        
+
+        async def main():
+            game_api = GameAPI(config)
+
+            # Create and start web server in a separate thread
+            web_server = WebServer(config)
+            web_server_thread = asyncio.to_thread(web_server.run)
+
+            # Create and start WebSocket server
+            ws_server = WebSocketServer(config.server.host, config.server.port + 1, game_api)
+            await ws_server.start()
+
+            await web_server_thread
+
+        asyncio.run(main())
+
     except KeyboardInterrupt:
         print("\nServer stopped")
     except Exception as e:

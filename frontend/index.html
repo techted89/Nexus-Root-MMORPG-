@@ -175,6 +175,28 @@
         let playerName = 'test_user'; // Should be set on login
         const autocompleteContainer = document.getElementById('autocomplete');
         const availableCommands = ["help", "man", "ls", "cat", "scan", "connect", "run", "shop", "buy"]; // Will be fetched
+        const socket = new WebSocket(`ws://${window.location.hostname}:8081`);
+
+        socket.onopen = function(e) {
+            console.log("[open] Connection established");
+        };
+
+        socket.onmessage = function(event) {
+            console.log(`[message] Data received from server: ${event.data}`);
+            const responseLine = document.createElement('div');
+            responseLine.classList.add('line');
+            responseLine.textContent = event.data;
+            terminalOutput.appendChild(responseLine);
+            document.getElementById('terminal').scrollTop = document.getElementById('terminal').scrollHeight;
+        };
+
+        socket.onclose = function(event) {
+            if (event.wasClean) {
+                console.log(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+            } else {
+                console.log('[close] Connection died');
+            }
+        };
 
         terminalInput.addEventListener('input', () => {
             const text = terminalInput.value;
@@ -209,57 +231,19 @@
             }
         });
 
-        async function executeCommand(command) {
+        function executeCommand(command) {
             commandHistory.unshift(command);
             historyIndex = -1;
-
-            if (command.trim().startsWith('man')) {
-                showManPage(command);
-                return;
-            }
-
-            const commandBlock = document.createElement('div');
-            commandBlock.classList.add('command-block');
 
             const commandLine = document.createElement('div');
             commandLine.classList.add('line');
             commandLine.innerHTML = `<span class="prompt">&gt; </span>${command}`;
-            commandBlock.appendChild(commandLine);
+            terminalOutput.appendChild(commandLine);
 
-            const response = await fetch('/api/command/execute', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${sessionToken}`
-                },
-                body: JSON.stringify({ command, player_name: playerName })
-            });
-            const data = await response.json();
-            const responseLine = document.createElement('div');
-            responseLine.classList.add('line');
-
-            if (data.success) {
-                responseLine.textContent = data.output;
-                window.dispatchEvent(new CustomEvent('commandSuccess', { detail: data }));
-                // Dispatch resource update event
-                window.dispatchEvent(new CustomEvent('updateResources', { detail: { cpu: Math.random() * 100, ram: Math.random() * 100, credits: 100 } }));
-                if (navigator.vibrate) {
-                    navigator.vibrate(100); // Vibrate for 100ms
-                }
-
-                const copyButton = document.createElement('button');
-                copyButton.textContent = 'Copy';
-                copyButton.classList.add('copy-button');
-                copyButton.addEventListener('click', () => {
-                    navigator.clipboard.writeText(data.output);
-                });
-                commandBlock.appendChild(copyButton);
-
-            } else {
-                responseLine.textContent = `Error: ${data.error}`;
-            }
-            commandBlock.appendChild(responseLine);
-            terminalOutput.appendChild(commandBlock);
+            socket.send(JSON.stringify({
+                event: "EXECUTE_COMMAND",
+                payload: command
+            }));
             document.getElementById('terminal').scrollTop = document.getElementById('terminal').scrollHeight;
         }
 
@@ -327,7 +311,7 @@
 
         let commandHistory = [];
         let historyIndex = -1;
-        function commandHistory(direction) {
+        function handleCommandHistory(direction) {
             if (direction === 'up') {
                 if (historyIndex < commandHistory.length - 1) {
                     historyIndex++;

@@ -66,22 +66,24 @@ class TestGameAPI:
         assert result["success"] == False
         assert "Invalid player name" in result["error"]
     
-    def test_execute_command_api(self, game_api):
+    @pytest.mark.asyncio
+    async def test_execute_command_api(self, game_api):
         """Test command execution through API"""
         # Create and authenticate player
         game_api.create_player("TestPlayer")
         game_api.authenticate_player("TestPlayer")
         
         # Execute command
-        result = game_api.execute_command("TestPlayer", "ls")
+        result = await game_api.execute_command("TestPlayer", "ls")
         
         assert result["success"] == True
         assert result["output"] is not None
         assert result["execution_time_ms"] >= 0
     
-    def test_execute_command_unknown_player(self, game_api):
+    @pytest.mark.asyncio
+    async def test_execute_command_unknown_player(self, game_api):
         """Test command execution with unknown player"""
-        result = game_api.execute_command("UnknownPlayer", "ls")
+        result = await game_api.execute_command("UnknownPlayer", "ls")
         
         assert result["success"] == False
         assert "Player not found" in result["error"]

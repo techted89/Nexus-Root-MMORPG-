@@ -3,6 +3,7 @@ Command execution service
 """
 
 import time
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Callable
 from datetime import datetime
@@ -59,6 +60,7 @@ from ..nexus_script.commands.pivot import PivotCommand
 from ..nexus_script.commands.thread_spawn import ThreadSpawnCommand
 from ..nexus_script.commands.raw import RawCommand
 from ..nexus_script.commands.auto_defend import AutoDefendCommand
+from ..nexus_script.commands.vc_status import VCStatusCommand
 
 class LsCommand(Command):
     """List directory contents command"""
@@ -156,47 +158,51 @@ class ScanCommand(Command):
 class HashcrackCommand(Command):
     """Hash cracking command"""
     
-    def __init__(self):
-        super().__init__("hashcrack", "Crack password hashes", "hashcrack <hash>")
+    def __init__(self, event_service):
+        super().__init__("hashcrack", "Crack password hashes", "hashcrack <hash_id> <wordlist_id>")
+        self.event_service = event_service
         self.min_level = 3
         self.resource_cost = 10
     
-    def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
-        if not args:
-            return CommandResult(False, error="Usage: hashcrack <hash>")
+    async def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
+        if len(args) != 2:
+            return CommandResult(False, error="Usage: hashcrack <hash_id> <wordlist_id>")
         
-        hash_value = args[0]
-        
-        # Simulate cracking time based on CPU tier
-        crack_time = 5.0 * player.virtual_computer.cpu.get_speed_multiplier()
-        
-        output = f"Cracking hash: {hash_value}\n"
-        if player.is_vip:
-            output += "Using quantum-enhanced algorithms...\n"
-        else:
-            output += f"Estimated time: {crack_time:.1f}s\n"
-            time.sleep(crack_time)
-        
-        # Simulated password result
-        password = "password123"
-        output += f"Password found: {password}"
-        
-        return CommandResult(
-            True,
-            output,
-            data={
-                "hash": hash_value,
-                "password": password,
-                "crack_time": crack_time
-            }
-        )
+        hash_id = args[0]
+        wordlist_id = args[1]
+
+        # In a real implementation, you would look up the hash and wordlist from the game state.
+        # Here, we'll just simulate it.
+        if hash_id != "abc...123" or wordlist_id != "wordlist.txt":
+            return CommandResult(False, error="Invalid hash or wordlist")
+
+        # Allocate resources
+        pid = f"hashcrack-{hash_id}"
+        if not player.virtual_computer.allocate_resources(pid, "hashcrack", 50, 20):
+            return CommandResult(False, error="Insufficient resources")
+
+        # Calculate execution time
+        base_time = 30
+        final_time = base_time * player.virtual_computer.cpu.get_speed_multiplier()
+
+        # Schedule completion event
+        await self.event_service.schedule_event(final_time, self.complete_hashcrack(player, pid, "password123"))
+
+        return CommandResult(True, f"Executing hashcrack... (Est. {final_time:.1f}s)")
+
+    async def complete_hashcrack(self, player: Player, pid: str, password: str):
+        """Callback for when hashcrack is complete"""
+        player.virtual_computer.deallocate_resources(pid)
+        # In a real implementation, you would send a WebSocket message to the client.
+        print(f"Hash cracked for {player.name}: {password}")
 
 class CommandService:
     """Service for managing command execution"""
     
-    def __init__(self, event_bus: EventBus = None, player_service = None):
+    def __init__(self, event_bus: EventBus = None, player_service = None, event_service = None):
         self.event_bus = event_bus or EventBus()
         self.player_service = player_service
+        self.event_service = event_service
         self.logger = NexusLogger.get_logger("command_service")
         self.commands: Dict[str, Command] = {}
         self.execution_context: Dict[str, Any] = {}
@@ -211,13 +217,14 @@ class CommandService:
             LsCommand(),
             CatCommand(),
             ScanCommand(),
-            HashcrackCommand(),
+            HashcrackCommand(self.event_service),
             DOSAttackCommand(self.player_service),
             RunCommand(self.player_service),
             PivotCommand(self.player_service),
             ThreadSpawnCommand(self.player_service),
             RawCommand(self.player_service),
             AutoDefendCommand(self.player_service),
+            VCStatusCommand(),
         ]
         
         for command in commands:
@@ -252,7 +259,7 @@ class CommandService:
         
         return available
     
-    def execute_command(self, player: Player, command_line: str) -> CommandResult:
+    async def execute_command(self, player: Player, command_line: str) -> CommandResult:
         """Execute a command"""
         start_time = time.time()
         
@@ -286,7 +293,10 @@ class CommandService:
                 player.update_credits(-command.resource_cost)
             
             # Execute command
-            result = command.execute(player, args, self.execution_context.copy())
+            if asyncio.iscoroutinefunction(command.execute):
+                result = await command.execute(player, args, self.execution_context.copy())
+            else:
+                result = command.execute(player, args, self.execution_context.copy())
             
             # Calculate execution time
             end_time = time.time()

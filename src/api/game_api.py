@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional
 from ..services.player_service import PlayerService
 from ..services.command_service import CommandService
 from ..services.mission_service import MissionService
+from ..services.event_service import EventService
 from ..repositories.sqlite_player_repository import SQLitePlayerRepository
 from ..repositories.sqlite_mission_repository import SQLiteMissionRepository
 from ..core.events import EventBus
@@ -32,8 +33,9 @@ class GameAPI:
         self.mission_repository = SQLiteMissionRepository(self.config.database.database)
         
         # Initialize services
+        self.event_service = EventService()
         self.player_service = PlayerService(self.player_repository, self.event_bus)
-        self.command_service = CommandService(self.event_bus, self.player_service)
+        self.command_service = CommandService(self.event_bus, self.player_service, self.event_service)
         self.mission_service = MissionService(self.mission_repository, self.event_bus)
         
         # Setup event handlers
@@ -190,7 +192,7 @@ class GameAPI:
     
     # Command Execution API
     
-    def execute_command(self, player_name: str, command_line: str) -> Dict[str, Any]:
+    async def execute_command(self, player_name: str, command_line: str) -> Dict[str, Any]:
         """Execute a command for a player"""
         try:
             player = self.player_service.get_player_by_name(player_name)
@@ -200,7 +202,7 @@ class GameAPI:
             # Check passive mining before command execution
             self.player_service.check_passive_mining(player)
             
-            result = self.command_service.execute_command(player, command_line)
+            result = await self.command_service.execute_command(player, command_line)
             
             # Save player state after command
             self.player_service.repository.save(player)

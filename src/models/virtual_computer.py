@@ -89,19 +89,47 @@ class VirtualComputer:
         self.network_card = NetworkCard()
         self.storage = Storage()
         
+        # Dynamic resources
+        self.ram_in_use = 0
+        self.cpu_load = 0
+        self.active_processes: Dict[str, Dict[str, any]] = {}
+
         # System state
-        self.active_threads: int = 0
         self.passive_mining_end_time: Optional[datetime] = None
         self.last_maintenance: datetime = datetime.now()
         
         # Performance metrics
         self.total_uptime_minutes: int = 0
         self.total_commands_processed: int = 0
+
+    def get_max_ram(self) -> int:
+        """Get maximum RAM based on tier"""
+        return 128 * (2 ** (self.ram.tier - 1))
+
+    def get_max_cpu(self) -> int:
+        """Get maximum CPU load"""
+        return 100
+
+    def allocate_resources(self, pid: str, name: str, ram: int, cpu: int) -> bool:
+        """Allocate RAM and CPU for a process"""
+        if self.ram_in_use + ram > self.get_max_ram() or self.cpu_load + cpu > self.get_max_cpu():
+            return False
+
+        self.ram_in_use += ram
+        self.cpu_load += cpu
+        self.active_processes[pid] = {"name": name, "ram": ram, "cpu": cpu}
+        return True
+
+    def deallocate_resources(self, pid: str) -> bool:
+        """Deallocate RAM and CPU for a process"""
+        if pid not in self.active_processes:
+            return False
+
+        process = self.active_processes.pop(pid)
+        self.ram_in_use -= process["ram"]
+        self.cpu_load -= process["cpu"]
+        return True
         
-    def can_run_threads(self, thread_count: int) -> bool:
-        """Check if system can run specified number of threads"""
-        return (self.active_threads + thread_count) <= self.ram.get_max_threads()
-    
     def start_passive_mining(self, duration_hours: int) -> bool:
         """Start passive hash mining"""
         if self.passive_mining_end_time and datetime.now() < self.passive_mining_end_time:
@@ -218,8 +246,9 @@ class VirtualComputer:
             "ram_tier": self.ram.tier,
             "nic_tier": self.network_card.tier,
             "ssd_tier": self.storage.tier,
-            "active_threads": self.active_threads,
-            "max_threads": self.ram.get_max_threads(),
+            "cpu_load": self.cpu_load,
+            "ram_in_use": self.ram_in_use,
+            "max_ram": self.get_max_ram(),
             "passive_mining_active": self.passive_mining_end_time is not None
         }
     
@@ -230,7 +259,9 @@ class VirtualComputer:
             "ram_tier": self.ram.tier,
             "nic_tier": self.network_card.tier,
             "ssd_tier": self.storage.tier,
-            "active_threads": self.active_threads,
+            "ram_in_use": self.ram_in_use,
+            "cpu_load": self.cpu_load,
+            "active_processes": self.active_processes,
             "passive_mining_end_time": self.passive_mining_end_time.isoformat() if self.passive_mining_end_time else None,
             "last_maintenance": self.last_maintenance.isoformat(),
             "total_uptime_minutes": self.total_uptime_minutes,
@@ -247,7 +278,9 @@ class VirtualComputer:
         vc.network_card.tier = data.get("nic_tier", 1)
         vc.storage.tier = data.get("ssd_tier", 1)
         
-        vc.active_threads = data.get("active_threads", 0)
+        vc.ram_in_use = data.get("ram_in_use", 0)
+        vc.cpu_load = data.get("cpu_load", 0)
+        vc.active_processes = data.get("active_processes", {})
         
         if data.get("passive_mining_end_time"):
             vc.passive_mining_end_time = datetime.fromisoformat(data["passive_mining_end_time"])
