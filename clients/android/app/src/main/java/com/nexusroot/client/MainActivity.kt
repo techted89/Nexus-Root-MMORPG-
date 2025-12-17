@@ -1,6 +1,7 @@
 package com.nexusroot.client
 
 import android.os.Bundle
+import android.text.method.ScrollingMovementMethod
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
@@ -16,24 +17,76 @@ class MainActivity : AppCompatActivity() {
     private lateinit var etInput: EditText
     private lateinit var btnSend: Button
 
+    // HUD Elements
+    private lateinit var tvPlayerName: TextView
+    private lateinit var tvPlayerLevel: TextView
+    private lateinit var tvPlayerCredits: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        initializeViews()
+        setupObservers()
+        setupListeners()
+    }
+
+    private fun initializeViews() {
         tvOutput = findViewById(R.id.tvOutput)
         etInput = findViewById(R.id.etInput)
         btnSend = findViewById(R.id.btnSend)
 
-        // Observe ViewModel
+        tvPlayerName = findViewById(R.id.tvPlayerName)
+        tvPlayerLevel = findViewById(R.id.tvPlayerLevel)
+        tvPlayerCredits = findViewById(R.id.tvPlayerCredits)
+
+        tvOutput.movementMethod = ScrollingMovementMethod()
+    }
+
+    private fun setupObservers() {
         viewModel.consoleOutput.observe(this) { text ->
             tvOutput.text = text
             scrollToBottom()
         }
 
+        viewModel.playerStats.observe(this) { player ->
+            if (player != null) {
+                tvPlayerName.text = player.name
+                tvPlayerLevel.text = "Lvl: ${player.level}"
+                tvPlayerCredits.text = "CR: ${player.credits}"
+            }
+        }
+    }
+
+    private fun setupListeners() {
         btnSend.setOnClickListener {
             val cmd = etInput.text.toString()
             viewModel.sendCommand(cmd)
             etInput.text.clear()
+        }
+
+        // Quick Commands
+        findViewById<Button>(R.id.btnCmdStatus).setOnClickListener {
+            viewModel.sendCommand("status")
+        }
+        findViewById<Button>(R.id.btnCmdScan).setOnClickListener {
+            viewModel.sendCommand("scan")
+        }
+        findViewById<Button>(R.id.btnCmdLs).setOnClickListener {
+            viewModel.sendCommand("ls")
+        }
+        findViewById<Button>(R.id.btnCmdHelp).setOnClickListener {
+            viewModel.sendCommand("help")
+        }
+
+        // Special Characters (insert into input)
+        findViewById<Button>(R.id.btnCmdSlash).setOnClickListener {
+            etInput.text.append("/")
+            etInput.setSelection(etInput.text.length)
+        }
+        findViewById<Button>(R.id.btnCmdDot).setOnClickListener {
+            etInput.text.append(".")
+            etInput.setSelection(etInput.text.length)
         }
     }
 

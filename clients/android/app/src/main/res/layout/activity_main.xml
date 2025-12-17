@@ -3,37 +3,177 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
-    android:background="#000000">
+    android:background="#000000"
+    android:padding="8dp">
 
+    <!-- HUD / Status Bar -->
+    <LinearLayout
+        android:id="@+id/layoutStats"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:background="#112211"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/tvPlayerName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Guest"
+            android:textColor="#00FF00"
+            android:textStyle="bold"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:id="@+id/tvPlayerLevel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Lvl: 0"
+            android:textColor="#00FF00"
+            android:paddingEnd="16dp"
+            android:fontFamily="monospace" />
+
+        <TextView
+            android:id="@+id/tvPlayerCredits"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CR: 0"
+            android:textColor="#FFFF00"
+            android:fontFamily="monospace" />
+    </LinearLayout>
+
+    <!-- Terminal Output -->
     <TextView
         android:id="@+id/tvOutput"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:text="Welcome to Nexus Root"
+        android:text="Initializing..."
         android:textColor="#00FF00"
         android:fontFamily="monospace"
         android:textSize="14sp"
-        android:scrollbars="vertical" />
+        android:scrollbars="vertical"
+        android:gravity="bottom"
+        android:background="#000000" />
 
-    <EditText
-        android:id="@+id/etInput"
+    <!-- Quick Command Bar -->
+    <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter command..."
-        android:textColor="#00FF00"
-        android:textColorHint="#008800"
-        android:backgroundTint="#00FF00"
-        android:fontFamily="monospace"
-        android:inputType="textNoSuggestions" />
+        android:scrollbars="none"
+        android:layout_marginBottom="4dp">
 
-    <Button
-        android:id="@+id/btnSend"
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                style="@style/Widget.AppCompat.Button.Small"
+                android:id="@+id/btnCmdStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="status"
+                android:backgroundTint="#004400"
+                android:textColor="#00FF00"
+                android:layout_marginEnd="4dp"
+                android:textSize="10sp"/>
+
+            <Button
+                style="@style/Widget.AppCompat.Button.Small"
+                android:id="@+id/btnCmdScan"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="scan"
+                android:backgroundTint="#004400"
+                android:textColor="#00FF00"
+                android:layout_marginEnd="4dp"
+                android:textSize="10sp"/>
+
+            <Button
+                style="@style/Widget.AppCompat.Button.Small"
+                android:id="@+id/btnCmdLs"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="ls"
+                android:backgroundTint="#004400"
+                android:textColor="#00FF00"
+                android:layout_marginEnd="4dp"
+                android:textSize="10sp"/>
+
+            <Button
+                style="@style/Widget.AppCompat.Button.Small"
+                android:id="@+id/btnCmdHelp"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="help"
+                android:backgroundTint="#004400"
+                android:textColor="#00FF00"
+                android:layout_marginEnd="4dp"
+                android:textSize="10sp"/>
+
+            <Button
+                style="@style/Widget.AppCompat.Button.Small"
+                android:id="@+id/btnCmdSlash"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="/"
+                android:backgroundTint="#003300"
+                android:textColor="#00FF00"
+                android:layout_marginEnd="4dp"
+                android:textSize="12sp"/>
+
+            <Button
+                style="@style/Widget.AppCompat.Button.Small"
+                android:id="@+id/btnCmdDot"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="."
+                android:backgroundTint="#003300"
+                android:textColor="#00FF00"
+                android:layout_marginEnd="4dp"
+                android:textSize="12sp"/>
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Input Area -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Send"
-        android:backgroundTint="#004400"
-        android:textColor="#00FF00" />
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=">"
+            android:textColor="#00FF00"
+            android:textSize="18sp"
+            android:paddingEnd="8dp"
+            android:layout_gravity="center_vertical"/>
+
+        <EditText
+            android:id="@+id/etInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="..."
+            android:textColor="#00FF00"
+            android:textColorHint="#005500"
+            android:backgroundTint="#00FF00"
+            android:fontFamily="monospace"
+            android:inputType="textNoSuggestions"
+            android:maxLines="1" />
+
+        <Button
+            android:id="@+id/btnSend"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ENTER"
+            android:backgroundTint="#006600"
+            android:textColor="#00FF00" />
+    </LinearLayout>
 
 </LinearLayout>

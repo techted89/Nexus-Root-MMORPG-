@@ -14,6 +14,9 @@ class MainViewModel : ViewModel() {
     private val _consoleOutput = MutableLiveData<String>()
     val consoleOutput: LiveData<String> = _consoleOutput
 
+    private val _playerStats = MutableLiveData<Player?>()
+    val playerStats: LiveData<Player?> = _playerStats
+
     private var sessionToken: String? = null
     private var playerName: String? = null
 
@@ -48,6 +51,11 @@ class MainViewModel : ViewModel() {
 
                 val response = NetworkClient.api.executeCommand(token, request)
                 handleCommandResponse(response)
+
+                // Refresh stats after command (credits might have changed)
+                if (playerName != null) {
+                    refreshPlayerStats(playerName!!)
+                }
             } catch (e: Exception) {
                 appendOutput("Command Error: ${e.message}")
             }
@@ -93,6 +101,7 @@ class MainViewModel : ViewModel() {
                     playerName = user
                     appendOutput("Logged in as $user")
                     createPlayerIfNeeded(user)
+                    refreshPlayerStats(user)
                 } else {
                     appendOutput("Login failed. Attempting registration...")
                     registerUser(user, pass)
@@ -111,7 +120,7 @@ class MainViewModel : ViewModel() {
 
                 if (response.isSuccessful && response.body()?.success == true) {
                     appendOutput("Registration successful. Logging in...")
-                    // Recursively call login (careful with infinite loops in prod, safe enough for demo)
+                    // Recursively call login
                     val loginRequest = LoginRequest(user, pass)
                     val loginResponse = NetworkClient.api.login(loginRequest)
                      if (loginResponse.isSuccessful && loginResponse.body()?.success == true) {
@@ -119,6 +128,7 @@ class MainViewModel : ViewModel() {
                         playerName = user
                         appendOutput("Logged in as $user")
                         createPlayerIfNeeded(user)
+                        refreshPlayerStats(user)
                      }
                 } else {
                     appendOutput("Registration failed: ${response.body()?.error}")
@@ -133,9 +143,22 @@ class MainViewModel : ViewModel() {
         try {
             val request = CreatePlayerRequest(name)
             NetworkClient.api.createPlayer(request)
-            // We don't necessarily need to output success for this background check
         } catch (e: Exception) {
             // Ignore
+        }
+    }
+
+    private suspend fun refreshPlayerStats(name: String) {
+        try {
+            val response = NetworkClient.api.getPlayer(name)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val player = response.body()?.data
+                if (player != null) {
+                    _playerStats.postValue(player)
+                }
+            }
+        } catch (e: Exception) {
+            // Silently fail for stats refresh
         }
     }
 }
