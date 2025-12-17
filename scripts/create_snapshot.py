@@ -33,11 +33,6 @@ async def create_snapshot():
     existing_player = game_api.get_player_by_name(snapshot_user)
     if existing_player['success'] and existing_player['data']:
         print(f"Player {snapshot_user} exists. Updating stats...")
-        # Since we don't have direct update methods exposed easily via API for everything,
-        # we might need to access the repository directly or use commands.
-        # But for a snapshot, simpler to delete and recreate if possible,
-        # but GameAPI doesn't have delete.
-        # We will just assume we are adding to it.
     else:
         print(f"Creating player {snapshot_user}...")
         game_api.create_player(snapshot_user, is_vip=True, session_id="snapshot_session")
@@ -58,11 +53,19 @@ async def create_snapshot():
 
     print("Unlocking commands...")
     # Simulate finding knowledge
+    # Note: KnowledgeMap doesn't have a 'discover' method, it manages lists directly
     known_commands = ["ls", "cat", "ps", "kill", "connect", "scan", "hashcrack", "analyze", "exploit"]
+
     for cmd in known_commands:
-        player.knowledge_map.discover(cmd)
-        player.knowledge_map.unlock(cmd)
-        player.knowledge_map.integrate(cmd)
+        # 1. Ensure it's not locked
+        if cmd in player.knowledge_map.locked_commands:
+            player.knowledge_map.unlock_command(cmd)
+            print(f"  Unlocked {cmd}")
+
+        # 2. Integrate it (fully learned)
+        if cmd not in player.knowledge_map.integrated_commands:
+             player.knowledge_map.integrate_command(cmd)
+             print(f"  Integrated {cmd}")
 
     print("Upgrading hardware...")
     # Max out some hardware
