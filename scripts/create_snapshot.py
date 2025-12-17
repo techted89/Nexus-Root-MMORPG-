@@ -47,13 +47,13 @@ async def create_snapshot():
         return
 
     print("Setting high-level stats...")
-    player.level = 10
-    player.credits = 50000
-    player.experience = 9000
+    player.level = 10  # Note: logic might overwrite this if exp doesn't match, but we force it here
+    player.stats.level = 10 # Force stats object directly
+    player.stats.credits = 50000
+    player.stats.experience = 9000
 
     print("Unlocking commands...")
     # Simulate finding knowledge
-    # Note: KnowledgeMap doesn't have a 'discover' method, it manages lists directly
     known_commands = ["ls", "cat", "ps", "kill", "connect", "scan", "hashcrack", "analyze", "exploit"]
 
     for cmd in known_commands:
@@ -69,18 +69,20 @@ async def create_snapshot():
 
     print("Upgrading hardware...")
     # Max out some hardware
-    player.virtual_computer.cpu_tier = 5
-    player.virtual_computer.ram_tier = 4
-    player.virtual_computer.ssd_tier = 3
-    player.virtual_computer.nic_tier = 5
+    # Corrected attribute access based on VirtualComputer model
+    player.virtual_computer.cpu.tier = 5
+    player.virtual_computer.ram.tier = 4
+    player.virtual_computer.storage.tier = 3
+    player.virtual_computer.network_card.tier = 5
 
     # Save changes
-    player_service.player_repository.save_player(player)
+    # Corrected: repository is accessed via .repository, and method is .save()
+    player_service.repository.save(player)
 
     print(f"Snapshot creation complete.")
     print(f"User: {snapshot_user}")
-    print(f"Level: {player.level}")
-    print(f"Credits: {player.credits}")
+    print(f"Level: {player.stats.level}")
+    print(f"Credits: {player.stats.credits}")
     print("-------------------------------")
 
 if __name__ == "__main__":
