@@ -8,6 +8,7 @@ from ..services.command_service import CommandService
 from ..services.mission_service import MissionService
 from ..repositories.sqlite_player_repository import SQLitePlayerRepository
 from ..repositories.sqlite_mission_repository import SQLiteMissionRepository
+from ..models.blockchain import game_blockchain
 from ..core.events import EventBus
 from ..core.config import NexusConfig
 from ..core.exceptions import NexusException, ValidationError, AuthenticationError
@@ -483,6 +484,14 @@ class GameAPI:
                 "code": e.code
             }
     
+    # Blockchain API
+    def get_blockchain_status(self) -> Dict[str, Any]:
+        """Get current blockchain status"""
+        return {
+            "success": True,
+            "data": game_blockchain.to_dict()
+        }
+
     # Utility Methods
     
     def validate_player_session(self, player_name: str, session_id: str) -> bool:

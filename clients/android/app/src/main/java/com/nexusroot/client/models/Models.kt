@@ -42,5 +42,6 @@ data class Player(
     val level: Int,
     val credits: Int,
     val experience: Int,
-    val is_vip: Boolean
+    val is_vip: Boolean,
+    val wallet_address: String? = null
 )

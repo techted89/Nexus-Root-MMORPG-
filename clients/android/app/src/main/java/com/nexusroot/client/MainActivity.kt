@@ -21,6 +21,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvPlayerName: TextView
     private lateinit var tvPlayerLevel: TextView
     private lateinit var tvPlayerCredits: TextView
+    private lateinit var tvWalletAddress: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +40,7 @@ class MainActivity : AppCompatActivity() {
         tvPlayerName = findViewById(R.id.tvPlayerName)
         tvPlayerLevel = findViewById(R.id.tvPlayerLevel)
         tvPlayerCredits = findViewById(R.id.tvPlayerCredits)
+        tvWalletAddress = findViewById(R.id.tvWalletAddress)
 
         tvOutput.movementMethod = ScrollingMovementMethod()
     }
@@ -53,7 +55,8 @@ class MainActivity : AppCompatActivity() {
             if (player != null) {
                 tvPlayerName.text = player.name
                 tvPlayerLevel.text = "Lvl: ${player.level}"
-                tvPlayerCredits.text = "CR: ${player.credits}"
+                tvPlayerCredits.text = "NXC: ${player.credits}"
+                tvWalletAddress.text = "Wallet: ${player.wallet_address ?: "Unknown"}"
             }
         }
     }

@@ -2,6 +2,7 @@
 Player data model
 """
 
+import hashlib
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -74,6 +75,11 @@ class Player:
         self.virtual_computer = VirtualComputer()
         self.knowledge_map = KnowledgeMap()
         
+        # Crypto
+        # Generate a wallet address based on name and creation time
+        hash_input = f"{name}-{self.created_at.timestamp()}".encode()
+        self.wallet_address = "NXC" + hashlib.sha256(hash_input).hexdigest()[:32]
+
         # Game state
         self.active_missions: List[str] = []
         self.completed_missions: List[str] = []
@@ -176,6 +182,7 @@ class Player:
             "level": self.stats.level,
             "experience": self.stats.experience,
             "credits": self.stats.credits,
+            "wallet_address": self.wallet_address,
             "is_vip": self.is_vip,
             "is_online": self.is_online,
             "virtual_computer": self.virtual_computer.get_summary(),
@@ -192,6 +199,7 @@ class Player:
             "created_at": self.created_at.isoformat(),
             "last_login": self.last_login.isoformat(),
             "is_online": self.is_online,
+            "wallet_address": self.wallet_address,
             "stats": {
                 "level": self.stats.level,
                 "experience": self.stats.experience,
@@ -231,7 +239,8 @@ class Player:
         if data.get("last_login"):
             player.last_login = datetime.fromisoformat(data["last_login"])
         player.is_online = data.get("is_online", False)
-        
+        player.wallet_address = data.get("wallet_address", f"NXC{hashlib.sha256(player.name.encode()).hexdigest()[:32]}")
+
         # Load stats
         if "stats" in data:
             stats_data = data["stats"]

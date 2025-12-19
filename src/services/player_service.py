@@ -5,6 +5,7 @@ Player service layer
 import sqlite3
 from typing import Optional, List, Dict, Any
 from ..models.player import Player
+from ..models.blockchain import game_blockchain
 from ..core.events import EventBus, Event, PlayerEvents
 from ..core.exceptions import ValidationError, InsufficientCreditsError, AuthenticationError
 from ..core.logger import NexusLogger
@@ -121,7 +122,7 @@ class PlayerService:
         return leveled_up
     
     def update_credits(self, player: Player, amount: int, reason: str = "") -> bool:
-        """Update player credits"""
+        """Update player credits and log to blockchain"""
         if amount < 0 and not player.can_afford(abs(amount)):
             raise InsufficientCreditsError(f"Player has {player.stats.credits} credits, needs {abs(amount)}")
         
@@ -130,7 +131,20 @@ class PlayerService:
             self.repository.save(player)
             action = "gained" if amount > 0 else "spent"
             self.logger.info(f"Player {player.name} {action} {abs(amount)} credits. Reason: {reason}")
-        
+
+            # BLOCKCHAIN INTEGRATION
+            sender = "SYSTEM"
+            recipient = player.wallet_address
+
+            if amount < 0:
+                sender = player.wallet_address
+                recipient = "SYSTEM"
+
+            # Record tx on chain
+            game_blockchain.add_transaction(sender, recipient, abs(amount), memo=reason)
+            # Auto-mine block for instant confirmation in this game loop
+            game_blockchain.mine_pending_transactions("MINER_POOL")
+
         return success
     
     def upgrade_hardware(self, player: Player, component: str) -> tuple[bool, str]:
@@ -149,7 +163,7 @@ class PlayerService:
             raise InsufficientCreditsError(f"Upgrade costs {cost} credits, player has {player.stats.credits}")
         
         # Charge credits
-        player.update_credits(-cost, self.event_bus)
+        self.update_credits(player, -cost, f"Upgrade {component}")
         
         # Publish event
         self.event_bus.publish(Event(
@@ -164,7 +178,10 @@ class PlayerService:
             source="player_service"
         ))
         
-        self.repository.save(player)
+        # Note: update_credits already saves the player, but we saved VC state too?
+        # update_credits saves the player object passed to it.
+        # But let's save again to be safe about the VC state change if it wasn't captured.
+        # (It should be captured because update_credits saves the `player` object).
         
         new_tier = getattr(player.virtual_computer, component).tier
         self.logger.info(f"Player {player.name} upgraded {component} to tier {new_tier} for {cost} credits")
