@@ -58,3 +58,53 @@ A Home Screen widget for the Android client that displays real-time passive mini
   - Background `WorkManager` job to poll `/api/player/{name}/state` every 15-30 minutes.
   - **Visuals:** Matrix-themed progress bar for mining completion.
   - **Interaction:** Tap to collect credits (launches app deep link).
+
+## 4. "Zero-Day" Research Lab (Crafting Mechanic)
+
+**Concept:**
+A resource-sink mechanic where players combine "Knowledge Fragments" (found in missions/files) to research "Zero-Day Exploits". These are single-use or limited-use consumables that bypass high-level security barriers.
+
+**Value:**
+- **Resource Sink:** Gives purpose to hoarded Knowledge Fragments.
+- **Strategic Depth:** Players must choose between selling fragments or crafting powerful tools.
+- **Progression:** Allows lower-level players to tackle higher-level targets occasionally.
+
+**Implementation Details:**
+- **Backend:**
+  - New `CraftingRecipe` model.
+  - `Player.inventory` tracks crafted exploits.
+  - Exploit logic hooked into `CommandService` (e.g., `exploit <target_ip> --use-zeroday`).
+
+## 5. Procedural Contract System (Infinite Content)
+
+**Concept:**
+An automated mission generator that creates "Contracts" based on the player's level. Instead of a static story, players take on procedurally generated jobs.
+
+**Value:**
+- **Replayability:** Infinite content stream.
+- **Scaling:** Missions automatically adjust to player power.
+
+**Implementation Details:**
+- **Backend:**
+  - `ContractGenerator` service.
+  - Templates: "Delete logs on [RandomServer]", "Download file [RandomHash]", "DDoS [RandomIP]".
+  - Dynamic rewards based on difficulty calculations.
+- **UI:**
+  - "Dark Web" job board interface in both Web and Android clients.
+
+## 6. Real-Time Terminal PvP (Combat)
+
+**Concept:**
+A synchronous 1v1 duel mode where players connect to a "Combat Server". They must type commands to breach the opponent's active defenses (Firewall HP) while patching their own.
+
+**Value:**
+- **Skill-Based:** Typist speed and command knowledge matter more than stats.
+- **Excitement:** High-stakes, fast-paced gameplay.
+
+**Implementation Details:**
+- **Backend:**
+  - WebSocket "Combat Room" handling.
+  - Real-time state syncing (HP, Shield, Status Effects).
+- **Frontend:**
+  - Split-screen terminal view (Attacker/Defender logs).
+  - Visual effects for successful hacks or blocks.
