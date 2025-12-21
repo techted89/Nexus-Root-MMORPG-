@@ -4,9 +4,10 @@ Player data model
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from datetime import datetime
 from .virtual_computer import VirtualComputer
+from .item import Item, Equipment, Consumable, ItemType
 from ..core.events import Event, PlayerEvents
 
 @dataclass
@@ -15,6 +16,14 @@ class PlayerStats:
     level: int = 1
     experience: int = 0
     credits: int = 0
+    attribute_points: int = 0
+
+    # Base Attributes
+    hacking_speed: int = 1
+    stealth: int = 1
+    defense: int = 1
+    heat_resistance: int = 1
+
     total_commands_executed: int = 0
     total_scripts_executed: int = 0
     total_missions_completed: int = 0
@@ -75,15 +84,18 @@ class Player:
         self.virtual_computer = VirtualComputer()
         self.knowledge_map = KnowledgeMap()
         
+        # Inventory System
+        self.inventory: List[Item] = []
+
         # Crypto
-        # Generate a wallet address based on name and creation time
         hash_input = f"{self.name}-{self.created_at.timestamp()}".encode()
         self.wallet_address = "NXC" + hashlib.sha256(hash_input).hexdigest()[:32]
 
         # Game state
         self.active_missions: List[str] = []
         self.completed_missions: List[str] = []
-        self.inventory: Dict[str, int] = {}
+        # Legacy inventory (simple counts) - keep for backward compat or specialized items
+        self.legacy_inventory: Dict[str, int] = {}
         self.settings: Dict[str, str] = {
             "theme": "default",
             "prompt_format": "{user}@nexus-root> "
@@ -99,6 +111,7 @@ class Player:
         while self.stats.can_level_up():
             self.stats.experience -= self.stats.get_required_xp_for_next_level()
             self.stats.level += 1
+            self.stats.attribute_points += 1 # Award AP
             leveled_up = True
         
         if leveled_up and event_bus:
@@ -143,6 +156,54 @@ class Player:
         """Check if player can afford something"""
         return self.stats.credits >= cost
     
+    def add_item(self, item: Item):
+        """Add item to inventory"""
+        self.inventory.append(item)
+
+    def remove_item(self, item_id: str) -> bool:
+        """Remove item from inventory"""
+        for i, item in enumerate(self.inventory):
+            if item.id == item_id:
+                self.inventory.pop(i)
+                return True
+        return False
+
+    def equip_item(self, item_id: str, slot: str) -> bool:
+        """Equip an item from inventory to VC slot"""
+        # Find item
+        item_to_equip = None
+        for item in self.inventory:
+            if item.id == item_id and isinstance(item, Equipment):
+                item_to_equip = item
+                break
+
+        if not item_to_equip:
+            return False
+
+        # Verify slot match
+        if item_to_equip.slot != slot:
+            return False
+
+        # Unequip existing if any
+        existing = None
+        if slot == "cpu": existing = self.virtual_computer.cpu_slot
+        elif slot == "ram": existing = self.virtual_computer.ram_slot
+        elif slot == "network": existing = self.virtual_computer.network_slot
+        elif slot == "storage": existing = self.virtual_computer.storage_slot
+
+        if existing:
+            self.inventory.append(existing)
+
+        # Equip
+        if slot == "cpu": self.virtual_computer.cpu_slot = item_to_equip
+        elif slot == "ram": self.virtual_computer.ram_slot = item_to_equip
+        elif slot == "network": self.virtual_computer.network_slot = item_to_equip
+        elif slot == "storage": self.virtual_computer.storage_slot = item_to_equip
+
+        # Remove from inventory
+        self.remove_item(item_id)
+        return True
+
     def login(self, event_bus=None):
         """Handle player login"""
         self.is_online = True
@@ -204,6 +265,11 @@ class Player:
                 "level": self.stats.level,
                 "experience": self.stats.experience,
                 "credits": self.stats.credits,
+                "attribute_points": self.stats.attribute_points,
+                "hacking_speed": self.stats.hacking_speed,
+                "stealth": self.stats.stealth,
+                "defense": self.stats.defense,
+                "heat_resistance": self.stats.heat_resistance,
                 "total_commands_executed": self.stats.total_commands_executed,
                 "total_scripts_executed": self.stats.total_scripts_executed,
                 "total_missions_completed": self.stats.total_missions_completed,
@@ -216,9 +282,10 @@ class Player:
                 "locked_commands": self.knowledge_map.locked_commands,
                 "knowledge_fragments": self.knowledge_map.knowledge_fragments
             },
+            "inventory": [item.to_dict() for item in self.inventory],
             "active_missions": self.active_missions,
             "completed_missions": self.completed_missions,
-            "inventory": self.inventory,
+            "legacy_inventory": self.legacy_inventory,
             "settings": self.settings,
             "password_hash": getattr(self, 'password_hash', None),
             "cpu_locked_until": self.cpu_locked_until.isoformat() if self.cpu_locked_until else None
@@ -247,6 +314,12 @@ class Player:
             player.stats.level = stats_data.get("level", 1)
             player.stats.experience = stats_data.get("experience", 0)
             player.stats.credits = stats_data.get("credits", 0)
+            player.stats.attribute_points = stats_data.get("attribute_points", 0)
+            player.stats.hacking_speed = stats_data.get("hacking_speed", 1)
+            player.stats.stealth = stats_data.get("stealth", 1)
+            player.stats.defense = stats_data.get("defense", 1)
+            player.stats.heat_resistance = stats_data.get("heat_resistance", 1)
+
             player.stats.total_commands_executed = stats_data.get("total_commands_executed", 0)
             player.stats.total_scripts_executed = stats_data.get("total_scripts_executed", 0)
             player.stats.total_missions_completed = stats_data.get("total_missions_completed", 0)
@@ -264,10 +337,21 @@ class Player:
             player.knowledge_map.locked_commands = kmap_data.get("locked_commands", ["scan", "run", "hashcrack", "pivot", "thread spawn", "raw", "edit"])
             player.knowledge_map.knowledge_fragments = kmap_data.get("knowledge_fragments", {})
         
+        # Load Inventory
+        if "inventory" in data and isinstance(data["inventory"], list):
+            for item_data in data["inventory"]:
+                item_type = item_data.get("type")
+                if item_type == "hardware":
+                    player.inventory.append(Equipment.from_dict(item_data))
+                elif item_type == "consumable":
+                    player.inventory.append(Consumable.from_dict(item_data))
+                else:
+                    player.inventory.append(Item.from_dict(item_data))
+
         # Load other data
         player.active_missions = data.get("active_missions", [])
         player.completed_missions = data.get("completed_missions", [])
-        player.inventory = data.get("inventory", {})
+        player.legacy_inventory = data.get("legacy_inventory", data.get("inventory", {}) if isinstance(data.get("inventory"), dict) else {})
         player.settings = data.get("settings", {"theme": "default", "prompt_format": "{user}@nexus-root> "})
         player.password_hash = data.get("password_hash")
         if data.get("cpu_locked_until"):

@@ -159,31 +159,48 @@ class PlayerService:
         
         if not player.can_afford(cost):
             # Rollback upgrade
-            getattr(player.virtual_computer, component).tier -= 1
+            # Note: VirtualComputer.upgrade_component modifies state directly
+            # We need to manually rollback if funds fail, but cleaner to check funds first?
+            # upgrade_component returns success/cost but doesn't check funds.
+            # So we effectively "committed" the upgrade in memory.
+            # We need to rollback.
+            # The simple way for tiers:
+            if component == "cpu": player.virtual_computer.cpu_tier -= 1
+            elif component == "ram": player.virtual_computer.ram_tier -= 1
+            elif component == "nic": player.virtual_computer.nic_tier -= 1
+            elif component == "ssd": player.virtual_computer.ssd_tier -= 1
+
             raise InsufficientCreditsError(f"Upgrade costs {cost} credits, player has {player.stats.credits}")
         
         # Charge credits
         self.update_credits(player, -cost, f"Upgrade {component}")
         
         # Publish event
+        new_tier = getattr(player.virtual_computer, f"{component}_tier") if component in ["cpu", "ram", "nic", "ssd"] else 0
+        # Map component names if needed (nic -> network_card?)
+        # VirtualComputer uses nic_tier internally for upgrade_component logic but properties might vary.
+        # Let's rely on what upgrade_component modified.
+
+        # Re-fetch tier safely
+        if component == "nic": new_tier = player.virtual_computer.nic_tier
+        elif component == "ssd": new_tier = player.virtual_computer.ssd_tier
+        elif component == "cpu": new_tier = player.virtual_computer.cpu_tier
+        elif component == "ram": new_tier = player.virtual_computer.ram_tier
+
         self.event_bus.publish(Event(
             PlayerEvents.PLAYER_UPGRADED_HARDWARE,
             {
                 "player_id": player.id,
                 "player_name": player.name,
                 "component": component,
-                "new_tier": getattr(player.virtual_computer, component).tier,
+                "new_tier": new_tier,
                 "cost": cost
             },
             source="player_service"
         ))
         
-        # Ensure hardware changes are saved.
-        # Although update_credits() saves the player, we want to be explicit
-        # that the modified VirtualComputer state is persisted.
         self.repository.save(player)
         
-        new_tier = getattr(player.virtual_computer, component).tier
         self.logger.info(f"Player {player.name} upgraded {component} to tier {new_tier} for {cost} credits")
         
         return True, f"Successfully upgraded {component.upper()} to tier {new_tier}"

@@ -47,8 +47,7 @@ async def create_snapshot():
         return
 
     print("Setting high-level stats...")
-    player.level = 10  # Note: logic might overwrite this if exp doesn't match, but we force it here
-    player.stats.level = 10 # Force stats object directly
+    player.stats.level = 10
     player.stats.credits = 50000
     player.stats.experience = 9000
 
@@ -68,15 +67,13 @@ async def create_snapshot():
              print(f"  Integrated {cmd}")
 
     print("Upgrading hardware...")
-    # Max out some hardware
-    # Corrected attribute access based on VirtualComputer model
-    player.virtual_computer.cpu.tier = 5
-    player.virtual_computer.ram.tier = 4
-    player.virtual_computer.storage.tier = 3
-    player.virtual_computer.network_card.tier = 5
+    # Max out some hardware - Updated for new VC structure
+    player.virtual_computer.cpu_tier = 5
+    player.virtual_computer.ram_tier = 4
+    player.virtual_computer.ssd_tier = 3
+    player.virtual_computer.nic_tier = 5
 
     # Save changes
-    # Corrected: repository is accessed via .repository, and method is .save()
     player_service.repository.save(player)
 
     print(f"Snapshot creation complete.")

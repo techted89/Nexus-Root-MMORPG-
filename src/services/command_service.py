@@ -91,7 +91,8 @@ class ScanCommand(Command):
         
         target = args[0]
         
-        scan_time = 3.0 * player.virtual_computer.cpu.get_speed_multiplier()
+        # Updated to use flat attribute/method on VirtualComputer
+        scan_time = 3.0 * player.virtual_computer.get_cpu_speed()
         if not player.is_vip:
             time.sleep(scan_time)
         
@@ -130,7 +131,8 @@ class HashcrackCommand(Command):
         
         hash_value = args[0]
         
-        crack_time = 5.0 * player.virtual_computer.cpu.get_speed_multiplier()
+        # Updated to use flat attribute/method on VirtualComputer
+        crack_time = 5.0 * player.virtual_computer.get_cpu_speed()
         
         output = f"Cracking hash: {hash_value}\n"
         if player.is_vip:
