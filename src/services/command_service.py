@@ -12,6 +12,7 @@ from ..core.logger import NexusLogger
 from ..core.command import Command, CommandResult
 from ..nexus_script.commands.basic_commands import WhoamiCommand, EchoCommand, DateCommand
 from ..nexus_script.commands.dos_attack import DOSAttackCommand
+from ..nexus_script.commands.pvp_commands import InjectCommand, SiphonCommand
 
 class SetCommand(Command):
     """Set variable command"""
@@ -175,7 +176,9 @@ class CommandService:
             DOSAttackCommand(self.player_service),
             WhoamiCommand(),
             EchoCommand(),
-            DateCommand()
+            DateCommand(),
+            InjectCommand(self.player_service),
+            SiphonCommand(self.player_service)
         ]
         
         for command in commands:
