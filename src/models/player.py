@@ -3,7 +3,7 @@ Player data model
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from datetime import datetime
 from .virtual_computer import VirtualComputer
 from ..core.events import Event, PlayerEvents
@@ -30,7 +30,7 @@ class PlayerStats:
 @dataclass
 class KnowledgeMap:
     """Player's knowledge map (K-Map) for commands and concepts"""
-    integrated_commands: List[str] = field(default_factory=lambda: ["set", "ls", "cat", "print", "dos_attack"])
+    integrated_commands: List[str] = field(default_factory=lambda: ["set", "ls", "cat", "print", "dos_attack", "jobs"])
     unlocked_commands: List[str] = field(default_factory=list)
     locked_commands: List[str] = field(default_factory=lambda: [
         "scan", "run", "hashcrack", "pivot", "thread spawn", "raw", "edit"
@@ -77,6 +77,7 @@ class Player:
         # Game state
         self.active_missions: List[str] = []
         self.completed_missions: List[str] = []
+        self.active_jobs: List[Dict[str, Any]] = []  # List of job data dictionaries
         self.inventory: Dict[str, int] = {}
         self.settings: Dict[str, str] = {
             "theme": "default",
@@ -210,6 +211,7 @@ class Player:
             },
             "active_missions": self.active_missions,
             "completed_missions": self.completed_missions,
+            "active_jobs": self.active_jobs,
             "inventory": self.inventory,
             "settings": self.settings,
             "password_hash": getattr(self, 'password_hash', None),
@@ -258,6 +260,7 @@ class Player:
         # Load other data
         player.active_missions = data.get("active_missions", [])
         player.completed_missions = data.get("completed_missions", [])
+        player.active_jobs = data.get("active_jobs", [])
         player.inventory = data.get("inventory", {})
         player.settings = data.get("settings", {"theme": "default", "prompt_format": "{user}@nexus-root> "})
         player.password_hash = data.get("password_hash")
