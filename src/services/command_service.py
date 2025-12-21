@@ -53,6 +53,8 @@ class Command(ABC):
         return True, "OK"
 
 from ..nexus_script.commands.dos_attack import DOSAttackCommand
+from ..commands.jobs_command import JobsCommand
+from ..services.job_service import JobService
 
 class SetCommand(Command):
     """Set variable command"""
@@ -202,6 +204,7 @@ class CommandService:
     def __init__(self, event_bus: EventBus = None, player_service = None):
         self.event_bus = event_bus or EventBus()
         self.player_service = player_service
+        self.job_service = JobService(event_bus=self.event_bus)
         self.logger = NexusLogger.get_logger("command_service")
         self.commands: Dict[str, Command] = {}
         self.execution_context: Dict[str, Any] = {}
@@ -217,7 +220,8 @@ class CommandService:
             CatCommand(),
             ScanCommand(),
             HashcrackCommand(),
-            DOSAttackCommand(self.player_service)
+            DOSAttackCommand(self.player_service),
+            JobsCommand(self.job_service)
         ]
         
         for command in commands:
