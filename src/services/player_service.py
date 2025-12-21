@@ -178,10 +178,10 @@ class PlayerService:
             source="player_service"
         ))
         
-        # Note: update_credits already saves the player, but we saved VC state too?
-        # update_credits saves the player object passed to it.
-        # But let's save again to be safe about the VC state change if it wasn't captured.
-        # (It should be captured because update_credits saves the `player` object).
+        # Ensure hardware changes are saved.
+        # Although update_credits() saves the player, we want to be explicit
+        # that the modified VirtualComputer state is persisted.
+        self.repository.save(player)
         
         new_tier = getattr(player.virtual_computer, component).tier
         self.logger.info(f"Player {player.name} upgraded {component} to tier {new_tier} for {cost} credits")

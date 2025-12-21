@@ -34,7 +34,8 @@ data class CommandRequest(
 )
 
 data class CommandResponse(
-    val output: String? = null
+    val output: String? = null,
+    val animation_type: String = "TEXT_ONLY"
 )
 
 data class Player(

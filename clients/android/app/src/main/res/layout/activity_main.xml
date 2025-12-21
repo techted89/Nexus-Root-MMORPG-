@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="#000000"
     android:padding="8dp">
 
@@ -63,136 +62,189 @@
 
     </LinearLayout>
 
-    <!-- Terminal Output -->
-    <TextView
-        android:id="@+id/tvOutput"
+    <!-- Content Wrapper for Terminal and Controls -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:text="Initializing..."
-        android:textColor="#00FF00"
-        android:fontFamily="monospace"
-        android:textSize="14sp"
-        android:scrollbars="vertical"
-        android:gravity="bottom"
-        android:background="#000000" />
+        android:layout_height="match_parent"
+        android:layout_below="@id/layoutStats"
+        android:orientation="vertical">
 
-    <!-- Quick Command Bar -->
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scrollbars="none"
-        android:layout_marginBottom="4dp">
+        <!-- Terminal Output -->
+        <TextView
+            android:id="@+id/tvOutput"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:text="Initializing..."
+            android:textColor="#00FF00"
+            android:fontFamily="monospace"
+            android:textSize="14sp"
+            android:scrollbars="vertical"
+            android:gravity="bottom"
+            android:background="#000000" />
 
+        <!-- Quick Command Bar -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="4dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnHistoryUp"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="▲"
+                    android:backgroundTint="#003300"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnHistoryDown"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="▼"
+                    android:backgroundTint="#003300"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="8dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="status"
+                    android:backgroundTint="#004400"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdScan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="scan"
+                    android:backgroundTint="#004400"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdLs"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="ls"
+                    android:backgroundTint="#004400"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="help"
+                    android:backgroundTint="#004400"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdSlash"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="/"
+                    android:backgroundTint="#003300"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="12sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdDot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="."
+                    android:backgroundTint="#003300"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="12sp"/>
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Input Area -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
-            <Button
-                style="@style/Widget.AppCompat.Button.Small"
-                android:id="@+id/btnCmdStatus"
+            <TextView
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="status"
-                android:backgroundTint="#004400"
+                android:layout_height="wrap_content"
+                android:text=">"
                 android:textColor="#00FF00"
-                android:layout_marginEnd="4dp"
-                android:textSize="10sp"/>
+                android:textSize="18sp"
+                android:paddingEnd="8dp"
+                android:layout_gravity="center_vertical"/>
+
+            <AutoCompleteTextView
+                android:id="@+id/etInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="..."
+                android:textColor="#00FF00"
+                android:textColorHint="#005500"
+                android:backgroundTint="#00FF00"
+                android:fontFamily="monospace"
+                android:inputType="textNoSuggestions"
+                android:completionThreshold="1"
+                android:maxLines="1" />
 
             <Button
-                style="@style/Widget.AppCompat.Button.Small"
-                android:id="@+id/btnCmdScan"
+                android:id="@+id/btnSend"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="scan"
-                android:backgroundTint="#004400"
-                android:textColor="#00FF00"
-                android:layout_marginEnd="4dp"
-                android:textSize="10sp"/>
-
-            <Button
-                style="@style/Widget.AppCompat.Button.Small"
-                android:id="@+id/btnCmdLs"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="ls"
-                android:backgroundTint="#004400"
-                android:textColor="#00FF00"
-                android:layout_marginEnd="4dp"
-                android:textSize="10sp"/>
-
-            <Button
-                style="@style/Widget.AppCompat.Button.Small"
-                android:id="@+id/btnCmdHelp"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="help"
-                android:backgroundTint="#004400"
-                android:textColor="#00FF00"
-                android:layout_marginEnd="4dp"
-                android:textSize="10sp"/>
-
-            <Button
-                style="@style/Widget.AppCompat.Button.Small"
-                android:id="@+id/btnCmdSlash"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="/"
-                android:backgroundTint="#003300"
-                android:textColor="#00FF00"
-                android:layout_marginEnd="4dp"
-                android:textSize="12sp"/>
-
-            <Button
-                style="@style/Widget.AppCompat.Button.Small"
-                android:id="@+id/btnCmdDot"
-                android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:text="."
-                android:backgroundTint="#003300"
-                android:textColor="#00FF00"
-                android:layout_marginEnd="4dp"
-                android:textSize="12sp"/>
-
+                android:layout_height="wrap_content"
+                android:text="ENTER"
+                android:backgroundTint="#006600"
+                android:textColor="#00FF00" />
         </LinearLayout>
-    </HorizontalScrollView>
-
-    <!-- Input Area -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=">"
-            android:textColor="#00FF00"
-            android:textSize="18sp"
-            android:paddingEnd="8dp"
-            android:layout_gravity="center_vertical"/>
-
-        <EditText
-            android:id="@+id/etInput"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="..."
-            android:textColor="#00FF00"
-            android:textColorHint="#005500"
-            android:backgroundTint="#00FF00"
-            android:fontFamily="monospace"
-            android:inputType="textNoSuggestions"
-            android:maxLines="1" />
-
-        <Button
-            android:id="@+id/btnSend"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="ENTER"
-            android:backgroundTint="#006600"
-            android:textColor="#00FF00" />
     </LinearLayout>
 
-</LinearLayout>
+    <!-- Overlay Animations -->
+    <ImageView
+        android:id="@+id/overlayRadar"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_centerInParent="true"
+        android:src="@mipmap/ic_launcher_round"
+        android:visibility="gone"
+        android:alpha="0.5"/>
+
+    <TextView
+        android:id="@+id/overlayHacking"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="0101010101"
+        android:gravity="center"
+        android:textColor="#00FF00"
+        android:textSize="24sp"
+        android:fontFamily="monospace"
+        android:visibility="gone"
+        android:background="#AA000000"/>
+
+</RelativeLayout>
