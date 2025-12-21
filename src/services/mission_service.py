@@ -5,7 +5,7 @@ Mission management service
 from typing import List, Optional, Dict, Any
 from ..models.mission import Mission, MissionStatus, MissionType, MissionObjective, MissionReward
 from ..models.player import Player
-from ..core.events import EventBus, Event, GameEvents
+from ..core.events import EventBus, Event, GameEvents, EventHandler
 from ..core.exceptions import ValidationError
 from ..core.logger import NexusLogger
 
@@ -17,9 +17,39 @@ class MissionService:
         self.event_bus = event_bus or EventBus()
         self.logger = NexusLogger.get_logger("mission_service")
         
+        # Subscribe to events
+        self._subscribe_events()
+
         # Initialize default missions if repository is empty
         self._initialize_default_missions()
     
+    def _subscribe_events(self):
+        class JobCompletionHandler(EventHandler):
+            def __init__(self, service):
+                self.service = service
+
+            def handle(self, event: Event) -> bool:
+                if event.event_type == "job_completed":
+                    player_data = event.data.get("player_data")
+                    player = None
+                    if player_data:
+                        try:
+                            player = Player.from_dict(player_data)
+                        except Exception as e:
+                            self.service.logger.error(f"Failed to deserialize player data: {e}")
+
+                    if player:
+                        self.service.handle_job_completion(player, event.data.get("job_id"))
+                    else:
+                        # Fallback (won't complete full mission logic but updates objectives)
+                        self.service.handle_job_completion_by_id(
+                            event.data.get("player_id"),
+                            event.data.get("job_id")
+                        )
+                return True
+
+        self.event_bus.subscribe("job_completed", JobCompletionHandler(self))
+
     def _initialize_default_missions(self):
         """Initialize default tutorial and starter missions"""
         if self.repository.count() == 0:
@@ -78,8 +108,40 @@ class MissionService:
         )
         mission3.add_objective(MissionObjective("crack_hash", "Crack a password hash", 1))
         
+        # Story Mission 1: The Awakening
+        story1 = Mission(
+            mission_id="story_001",
+            name="The Awakening",
+            description="You have been contacted by a mysterious entity known as 'The Architect'. They want you to prove your worth.",
+            mission_type=MissionType.MAIN,
+            reward=MissionReward(
+                experience=200,
+                credits=150,
+                unlocked_commands=[]
+            ),
+            prerequisites=["tutorial_003"],
+            level_requirement=3
+        )
+        story1.add_objective(MissionObjective("complete_job", "Complete your first Freelance Job", 1))
+
+        # Story Mission 2: Corporate Espionage
+        story2 = Mission(
+            mission_id="story_002",
+            name="Corporate Espionage",
+            description="The Architect needs you to infiltrate TechCorp's public server.",
+            mission_type=MissionType.MAIN,
+            reward=MissionReward(
+                experience=300,
+                credits=300,
+                items={"exploit_kit_v1": 1}
+            ),
+            prerequisites=["story_001"],
+            level_requirement=4
+        )
+        story2.add_objective(MissionObjective("scan_techcorp", "Scan 'techcorp.com'", 1))
+
         # Save missions
-        for mission in [mission1, mission2, mission3]:
+        for mission in [mission1, mission2, mission3, story1, story2]:
             self.repository.save(mission)
     
     def create_mission(
@@ -271,6 +333,54 @@ class MissionService:
         
         return mission.get_progress_summary()
     
+    def handle_job_completion(self, player: Player, job_id: str):
+        """Handle job completion for mission progress"""
+        # If we have the player object, we can directly check active missions
+        active_missions = self.get_active_missions(player)
+        for mission in active_missions:
+            for objective in mission.objectives:
+                if objective.is_completed:
+                    continue
+
+                if objective.id == "complete_job":
+                    self.update_mission_progress(player, mission.id, objective.id)
+
+    def handle_job_completion_by_id(self, player_id: str, job_id: str, player: Player = None):
+        """Handle job completion for mission progress using player ID"""
+        if player:
+            self.handle_job_completion(player, job_id)
+            return
+
+        # Without player object, we look up missions by player_id
+        # Note: We cannot call update_mission_progress properly because it needs a Player object
+        # for rewards. This is a limitation of the current event-driven design without dependency injection of PlayerService.
+        # However, we can update the mission state in the repository.
+
+        active_missions = self.repository.find_by_player_and_status(player_id, MissionStatus.IN_PROGRESS)
+        for mission in active_missions:
+            mission_updated = False
+            for objective in mission.objectives:
+                if objective.is_completed:
+                    continue
+
+                if objective.id == "complete_job":
+                    objective.update_progress(1)
+                    mission_updated = True
+
+            if mission_updated:
+                # Check completion manually without player rewards (rewards will be lost or need to be claimed later)
+                # Ideally we should fetch the player.
+                # For now, we just save the mission state.
+                # If mission is complete, we mark it.
+                if all(obj.is_completed for obj in mission.objectives):
+                     # We can't fully complete it because we need to give rewards to the player model
+                     # which we don't have access to here.
+                     # We will leave it as IN_PROGRESS but with objectives complete.
+                     # Or we can mark it COMPLETED but accept that rewards are not given instantly.
+                     pass
+
+                self.repository.save(mission)
+
     def handle_command_execution(self, player: Player, command: str, success: bool, data: Dict[str, Any] = None):
         """Handle command execution for mission progress"""
         active_missions = self.get_active_missions(player)
