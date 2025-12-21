@@ -77,7 +77,7 @@ class Player:
         
         # Crypto
         # Generate a wallet address based on name and creation time
-        hash_input = f"{name}-{self.created_at.timestamp()}".encode()
+        hash_input = f"{self.name}-{self.created_at.timestamp()}".encode()
         self.wallet_address = "NXC" + hashlib.sha256(hash_input).hexdigest()[:32]
 
         # Game state

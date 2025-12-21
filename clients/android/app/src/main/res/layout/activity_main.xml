@@ -48,6 +48,43 @@
                 android:fontFamily="monospace" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="2dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HEAT:"
+                android:textColor="#FF5555"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:layout_marginEnd="4dp"/>
+
+            <ProgressBar
+                android:id="@+id/pbHeat"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_height="10dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="#FF5555"/>
+
+            <TextView
+                android:id="@+id/tvHeatValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0%"
+                android:textColor="#FF5555"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:layout_marginStart="4dp"/>
+        </LinearLayout>
+
         <TextView
             android:id="@+id/tvWalletAddress"
             android:layout_width="match_parent"

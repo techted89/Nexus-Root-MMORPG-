@@ -11,6 +11,7 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -31,6 +32,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvPlayerLevel: TextView
     private lateinit var tvPlayerCredits: TextView
     private lateinit var tvWalletAddress: TextView
+
+    // Heat UI
+    private lateinit var pbHeat: ProgressBar
+    private lateinit var tvHeatValue: TextView
 
     // Animation Overlays
     private lateinit var overlayRadar: ImageView
@@ -64,6 +69,9 @@ class MainActivity : AppCompatActivity() {
         tvPlayerCredits = findViewById(R.id.tvPlayerCredits)
         tvWalletAddress = findViewById(R.id.tvWalletAddress)
 
+        pbHeat = findViewById(R.id.pbHeat)
+        tvHeatValue = findViewById(R.id.tvHeatValue)
+
         overlayRadar = findViewById(R.id.overlayRadar)
         overlayHacking = findViewById(R.id.overlayHacking)
 
@@ -82,13 +90,22 @@ class MainActivity : AppCompatActivity() {
                 tvPlayerLevel.text = "Lvl: ${player.level}"
                 tvPlayerCredits.text = "NXC: ${player.credits}"
                 tvWalletAddress.text = "Wallet: ${player.wallet_address ?: "Unknown"}"
+
+                // Update Heat
+                val heat = player.virtual_computer?.heat ?: 0f
+                val maxHeat = player.virtual_computer?.max_heat ?: 100f
+                pbHeat.max = maxHeat.toInt()
+                pbHeat.progress = heat.toInt()
+                tvHeatValue.text = "${heat.toInt()}%"
+
+                // Change color if overheated
+                if (heat > maxHeat * 0.9) {
+                    pbHeat.progressTintList = ContextCompat.getColorStateList(this, android.R.color.holo_red_dark)
+                } else {
+                    pbHeat.progressTintList = ContextCompat.getColorStateList(this, android.R.color.holo_red_light)
+                }
             }
         }
-
-        // Observe command responses for animation triggers
-        // Note: Ideally this would be a SingleLiveEvent, but we'll use a callback mechanism in ViewModel
-        // or just intercept output. For this implementation, we will add a dedicated LiveData in ViewModel later.
-        // For now, let's assume ViewModel exposes the last command result.
     }
 
     private fun setupListeners() {
@@ -98,8 +115,6 @@ class MainActivity : AppCompatActivity() {
                 commandHistory.add(cmd)
                 historyIndex = commandHistory.size
 
-                // Trigger animation based on simple heuristics until we wire up the full result
-                // (Though ViewModel handles the actual result parsing)
                 triggerHapticFeedback()
 
                 viewModel.sendCommand(cmd) { result ->
@@ -180,7 +195,6 @@ class MainActivity : AppCompatActivity() {
         val anim = AnimationUtils.loadAnimation(this, R.anim.radar_spin)
         overlayRadar.startAnimation(anim)
 
-        // Stop after 2 seconds
         overlayRadar.postDelayed({
             overlayRadar.clearAnimation()
             overlayRadar.visibility = View.GONE
@@ -189,7 +203,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun playHackingAnimation() {
         overlayHacking.visibility = View.VISIBLE
-        // Simple random text effect simulation
         val random = Random()
         val timer = Timer()
         var count = 0
@@ -204,7 +217,7 @@ class MainActivity : AppCompatActivity() {
                     overlayHacking.text = sb.toString()
                 }
                 count++
-                if (count > 20) { // 2 seconds approx
+                if (count > 20) {
                     timer.cancel()
                     runOnUiThread { overlayHacking.visibility = View.GONE }
                 }
@@ -216,7 +229,6 @@ class MainActivity : AppCompatActivity() {
         val anim = AnimationUtils.loadAnimation(this, R.anim.shake)
         etInput.startAnimation(anim)
 
-        // Stronger vibration for error
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
         } else {
@@ -225,8 +237,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playSuccessAnimation() {
-        // Flash screen green or similar
-        // For now, just a distinct vibration pattern
          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 50, 50, 50), -1))
         } else {

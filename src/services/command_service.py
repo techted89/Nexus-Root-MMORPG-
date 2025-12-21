@@ -10,6 +10,7 @@ from ..models.player import Player
 from ..core.events import EventBus, Event, GameEvents
 from ..core.exceptions import CommandNotFoundError, InsufficientResourcesError, ScriptExecutionError, CommandError
 from ..core.logger import NexusLogger
+from ..nexus_script.commands.basic_commands import WhoamiCommand, EchoCommand, DateCommand
 
 class CommandResult:
     """Result of command execution"""
@@ -31,6 +32,7 @@ class Command(ABC):
         self.requires_vip = False
         self.min_level = 1
         self.resource_cost = 0
+        self.heat_cost = 5.0 # Base heat cost
     
     @abstractmethod
     def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
@@ -124,6 +126,7 @@ class ScanCommand(Command):
     def __init__(self):
         super().__init__("scan", "Scan network targets", "scan <target>")
         self.min_level = 2
+        self.heat_cost = 15.0
     
     def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
         if not args:
@@ -162,6 +165,7 @@ class HashcrackCommand(Command):
         super().__init__("hashcrack", "Crack password hashes", "hashcrack <hash>")
         self.min_level = 3
         self.resource_cost = 10
+        self.heat_cost = 25.0
     
     def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
         if not args:
@@ -212,7 +216,10 @@ class CommandService:
             CatCommand(),
             ScanCommand(),
             HashcrackCommand(),
-            DOSAttackCommand(self.player_service)
+            DOSAttackCommand(self.player_service),
+            WhoamiCommand(),
+            EchoCommand(),
+            DateCommand()
         ]
         
         for command in commands:
@@ -237,7 +244,8 @@ class CommandService:
                 "reason": reason if not can_execute else None,
                 "requires_vip": command.requires_vip,
                 "min_level": command.min_level,
-                "resource_cost": command.resource_cost
+                "resource_cost": command.resource_cost,
+                "heat_cost": command.heat_cost
             })
         return available
     
@@ -260,6 +268,10 @@ class CommandService:
             if not command:
                 raise CommandNotFoundError(f"Unknown command: {command_name}")
             
+            # Check Heat
+            if player.virtual_computer.is_overheated():
+                return CommandResult(False, error="System Overheated! Wait for cooldown.", animation_type="ERROR_SHAKE")
+
             can_execute, reason = command.can_execute(player)
             if not can_execute:
                 return CommandResult(False, error=reason, animation_type="ERROR_SHAKE")
@@ -271,6 +283,9 @@ class CommandService:
             
             result = command.execute(player, args, self.execution_context.copy())
             
+            # Apply Heat Cost
+            player.virtual_computer.add_heat(command.heat_cost)
+
             end_time = time.time()
             result.execution_time_ms = (end_time - start_time) * 1000
             

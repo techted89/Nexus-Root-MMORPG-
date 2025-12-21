@@ -94,6 +94,12 @@ class VirtualComputer:
         self.passive_mining_end_time: Optional[datetime] = None
         self.last_maintenance: datetime = datetime.now()
         
+        # Heat Mechanic
+        self.current_heat: float = 0.0
+        self.max_heat: float = 100.0
+        self.cooling_rate: float = 2.0  # Heat reduced per second
+        self.last_heat_update: datetime = datetime.now()
+
         # Performance metrics
         self.total_uptime_minutes: int = 0
         self.total_commands_processed: int = 0
@@ -102,6 +108,27 @@ class VirtualComputer:
         """Check if system can run specified number of threads"""
         return (self.active_threads + thread_count) <= self.ram.get_max_threads()
     
+    def update_heat(self):
+        """Update system heat based on time passed"""
+        now = datetime.now()
+        elapsed_seconds = (now - self.last_heat_update).total_seconds()
+
+        if elapsed_seconds > 0:
+            # Cool down
+            cooling_amount = elapsed_seconds * self.cooling_rate
+            self.current_heat = max(0.0, self.current_heat - cooling_amount)
+            self.last_heat_update = now
+
+    def add_heat(self, amount: float):
+        """Add heat to the system"""
+        self.update_heat() # Ensure decay is processed first
+        self.current_heat = min(self.max_heat, self.current_heat + amount)
+
+    def is_overheated(self) -> bool:
+        """Check if system is overheated"""
+        self.update_heat()
+        return self.current_heat >= (self.max_heat * 0.95) # 95% threshold for "overheated" state
+
     def start_passive_mining(self, duration_hours: int) -> bool:
         """Start passive hash mining"""
         if self.passive_mining_end_time and datetime.now() < self.passive_mining_end_time:
@@ -195,6 +222,7 @@ class VirtualComputer:
     
     def get_system_stats(self) -> Dict[str, any]:
         """Get system statistics"""
+        self.update_heat()
         return {
             "cpu_tier": self.cpu.tier,
             "ram_tier": self.ram.tier,
@@ -208,11 +236,14 @@ class VirtualComputer:
             "passive_mining_active": self.passive_mining_end_time is not None,
             "mining_time_remaining": self.get_passive_mining_time_remaining(),
             "total_uptime_minutes": self.total_uptime_minutes,
-            "total_commands_processed": self.total_commands_processed
+            "total_commands_processed": self.total_commands_processed,
+            "heat": self.current_heat,
+            "max_heat": self.max_heat
         }
     
     def get_summary(self) -> Dict[str, any]:
         """Get summary for API responses"""
+        self.update_heat()
         return {
             "cpu_tier": self.cpu.tier,
             "ram_tier": self.ram.tier,
@@ -220,7 +251,9 @@ class VirtualComputer:
             "ssd_tier": self.storage.tier,
             "active_threads": self.active_threads,
             "max_threads": self.ram.get_max_threads(),
-            "passive_mining_active": self.passive_mining_end_time is not None
+            "passive_mining_active": self.passive_mining_end_time is not None,
+            "heat": self.current_heat,
+            "max_heat": self.max_heat
         }
     
     def to_dict(self) -> Dict[str, any]:
@@ -234,7 +267,9 @@ class VirtualComputer:
             "passive_mining_end_time": self.passive_mining_end_time.isoformat() if self.passive_mining_end_time else None,
             "last_maintenance": self.last_maintenance.isoformat(),
             "total_uptime_minutes": self.total_uptime_minutes,
-            "total_commands_processed": self.total_commands_processed
+            "total_commands_processed": self.total_commands_processed,
+            "heat": self.current_heat,
+            "last_heat_update": self.last_heat_update.isoformat()
         }
     
     @classmethod
@@ -258,4 +293,8 @@ class VirtualComputer:
         vc.total_uptime_minutes = data.get("total_uptime_minutes", 0)
         vc.total_commands_processed = data.get("total_commands_processed", 0)
         
+        vc.current_heat = float(data.get("heat", 0.0))
+        if data.get("last_heat_update"):
+            vc.last_heat_update = datetime.fromisoformat(data["last_heat_update"])
+
         return vc
