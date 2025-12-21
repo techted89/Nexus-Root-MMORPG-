@@ -15,6 +15,15 @@
         android:background="#112211"
         android:layout_marginBottom="8dp">
 
+    <Button
+        android:id="@+id/btnOpenEditor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open Script Editor"
+        android:backgroundTint="#003300"
+        android:textColor="#00FF00"
+        android:layout_marginBottom="8dp"/>
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

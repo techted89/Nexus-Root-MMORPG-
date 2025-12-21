@@ -23,6 +23,9 @@ class SQLitePlayerRepository(BaseRepository):
         """Initialize database tables"""
         try:
             with sqlite3.connect(self.db_path) as conn:
+                # Enable WAL mode for concurrency and performance
+                conn.execute("PRAGMA journal_mode=WAL;")
+
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS players (
                         id TEXT PRIMARY KEY,
@@ -66,6 +69,8 @@ class SQLitePlayerRepository(BaseRepository):
                 # Create indices
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_players_name ON players(name)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_players_session ON players(session_id)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_players_online_login ON players(is_online, last_login)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token)")
                 
                 conn.commit()
                 self.logger.debug("Initialized player and admin tables")

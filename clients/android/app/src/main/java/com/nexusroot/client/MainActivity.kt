@@ -13,10 +13,12 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.content.Intent
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.nexusroot.client.viewmodel.MainViewModel
+import com.nexusroot.client.editor.ScriptEditorActivity
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
@@ -138,6 +140,12 @@ class MainActivity : AppCompatActivity() {
         // History Navigation
         findViewById<Button>(R.id.btnHistoryUp).setOnClickListener { navigateHistory(-1) }
         findViewById<Button>(R.id.btnHistoryDown).setOnClickListener { navigateHistory(1) }
+
+        // Script Editor
+        findViewById<Button>(R.id.btnOpenEditor).setOnClickListener {
+            val intent = Intent(this, ScriptEditorActivity::class.java)
+            startActivity(intent)
+        }
     }
 
     private fun sendQuickCmd(cmd: String) {
