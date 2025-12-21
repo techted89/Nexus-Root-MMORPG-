@@ -34,7 +34,15 @@ data class CommandRequest(
 )
 
 data class CommandResponse(
-    val output: String? = null
+    val output: String? = null,
+    val animation_type: String = "TEXT_ONLY"
+)
+
+data class VirtualComputer(
+    val heat: Float = 0f,
+    val max_heat: Float = 100f,
+    val cpu_tier: Int = 1,
+    val ram_tier: Int = 1
 )
 
 data class Player(
@@ -42,5 +50,7 @@ data class Player(
     val level: Int,
     val credits: Int,
     val experience: Int,
-    val is_vip: Boolean
+    val is_vip: Boolean,
+    val wallet_address: String? = null,
+    val virtual_computer: VirtualComputer? = null
 )

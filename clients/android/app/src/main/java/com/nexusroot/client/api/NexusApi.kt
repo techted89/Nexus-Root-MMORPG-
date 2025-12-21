@@ -35,4 +35,7 @@ interface NexusApi {
         @Query("category") category: String = "level",
         @Query("limit") limit: Int = 10
     ): Response<ApiResponse<List<Player>>>
+
+    @POST("/api/script/execute")
+    suspend fun executeScript(@Body request: Map<String, String>): Response<ApiResponse<Any>>
 }

@@ -30,7 +30,7 @@ class MainViewModel : ViewModel() {
         _consoleOutput.postValue("$current$text\n")
     }
 
-    fun sendCommand(cmd: String) {
+    fun sendCommand(cmd: String, callback: ((CommandResponse) -> Unit)? = null) {
         if (cmd.isBlank()) return
         appendOutput("> $cmd")
 
@@ -50,7 +50,11 @@ class MainViewModel : ViewModel() {
                 val request = CommandRequest(cmd, playerName)
 
                 val response = NetworkClient.api.executeCommand(token, request)
-                handleCommandResponse(response)
+                val responseData = handleCommandResponse(response)
+
+                if (responseData != null && callback != null) {
+                    callback(responseData)
+                }
 
                 // Refresh stats after command (credits might have changed)
                 if (playerName != null) {
@@ -62,12 +66,15 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    private fun handleCommandResponse(response: Response<ApiResponse<CommandResponse>>) {
+    private fun handleCommandResponse(response: Response<ApiResponse<CommandResponse>>): CommandResponse? {
         if (response.isSuccessful && response.body()?.success == true) {
-            response.body()?.data?.output?.let { appendOutput(it) }
+            val cmdResponse = response.body()?.data
+            cmdResponse?.output?.let { appendOutput(it) }
+            return cmdResponse
         } else {
             val error = response.body()?.error ?: response.message()
             appendOutput("Error: $error")
+            return null
         }
     }
 
