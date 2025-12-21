@@ -378,8 +378,10 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                     const data = await response.json();
                     const responseLine = document.createElement('div');
                     responseLine.classList.add('line');
+                    // Check if response is wrapped
                     if (data.success) {
-                        responseLine.textContent = data.output;
+                        const output = data.data && data.data.output ? data.data.output : data.output;
+                        responseLine.textContent = output;
                     } else {
                         responseLine.textContent = `Error: ${data.error}`;
                     }
@@ -447,9 +449,6 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         if isinstance(name, list):
             name = name[0]
 
-        # The create_player method in the game_api expects a dictionary,
-        # but the form submission sends a dictionary where the values are lists.
-        # We need to convert the dictionary to the correct format.
         if isinstance(data, dict) and all(isinstance(v, list) for v in data.values()):
             data = {k: v[0] for k, v in data.items()}
         is_vip = data.get("is_vip", False)
@@ -485,9 +484,29 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         if not player_name:
             player_name = "test_user"
         
+        # Execute command
         result = self.game_api.execute_command(player_name, command)
-        self.send_json_response(result)
-    
+
+        if result.get("success"):
+            # Ensure response matches client expectation (data object wrapping results)
+            # Backend GameAPI returns { success, output, error, data: { ... } }
+            # Android expects ApiResponse where `data` is CommandResponse(output, animation_type)
+
+            # Construct the CommandResponse object structure
+            command_response = {
+                "output": result.get("output"),
+                "animation_type": result.get("data", {}).get("animation_type", "TEXT_ONLY")
+            }
+
+            # Wrap in ApiResponse structure
+            response = {
+                "success": True,
+                "data": command_response
+            }
+            self.send_json_response(response)
+        else:
+            self.send_json_response(result)
+
     def handle_execute_script(self, data: dict):
         """Handle script execution request"""
         player_name = data.get("player_name")
@@ -501,7 +520,20 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
             player_name = "test_user"
 
         result = self.game_api.execute_script(player_name, script)
-        self.send_json_response(result)
+
+        if result.get("success"):
+            # Wrap output for client consistency
+            # Android expects data field
+            response = {
+                "success": True,
+                "data": {
+                    "output": result.get("output"),
+                    "animation_type": "TEXT_ONLY"
+                }
+            }
+            self.send_json_response(response)
+        else:
+            self.send_json_response(result)
 
     def handle_start_mission(self, data: dict):
         """Handle start mission request"""
