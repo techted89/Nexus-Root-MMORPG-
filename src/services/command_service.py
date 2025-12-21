@@ -13,6 +13,7 @@ from ..core.command import Command, CommandResult
 from ..nexus_script.commands.basic_commands import WhoamiCommand, EchoCommand, DateCommand
 from ..nexus_script.commands.dos_attack import DOSAttackCommand
 from ..nexus_script.commands.pvp_commands import InjectCommand, SiphonCommand
+from ..nexus_script.commands.item_commands import InventoryCommand, EquipCommand, UseCommand
 
 class SetCommand(Command):
     """Set variable command"""
@@ -91,7 +92,6 @@ class ScanCommand(Command):
         
         target = args[0]
         
-        # Updated to use flat attribute/method on VirtualComputer
         scan_time = 3.0 * player.virtual_computer.get_cpu_speed()
         if not player.is_vip:
             time.sleep(scan_time)
@@ -131,7 +131,6 @@ class HashcrackCommand(Command):
         
         hash_value = args[0]
         
-        # Updated to use flat attribute/method on VirtualComputer
         crack_time = 5.0 * player.virtual_computer.get_cpu_speed()
         
         output = f"Cracking hash: {hash_value}\n"
@@ -180,7 +179,10 @@ class CommandService:
             EchoCommand(),
             DateCommand(),
             InjectCommand(self.player_service),
-            SiphonCommand(self.player_service)
+            SiphonCommand(self.player_service),
+            InventoryCommand(self.player_service),
+            EquipCommand(self.player_service),
+            UseCommand(self.player_service)
         ]
         
         for command in commands:

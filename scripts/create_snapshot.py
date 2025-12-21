@@ -67,7 +67,7 @@ async def create_snapshot():
              print(f"  Integrated {cmd}")
 
     print("Upgrading hardware...")
-    # Max out some hardware - Updated for new VC structure
+    # Max out some hardware - Updated for flat attributes in VC
     player.virtual_computer.cpu_tier = 5
     player.virtual_computer.ram_tier = 4
     player.virtual_computer.ssd_tier = 3

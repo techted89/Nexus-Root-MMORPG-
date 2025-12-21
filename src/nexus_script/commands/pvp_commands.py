@@ -1,4 +1,4 @@
-from ...services.command_service import Command, CommandResult
+from ...core.command import Command, CommandResult
 from ...core.exceptions import CommandError
 
 class InjectCommand(Command):
