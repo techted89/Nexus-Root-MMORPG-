@@ -1,4 +1,4 @@
-from ...services.command_service import Command, CommandResult
+from ...core.command import Command, CommandResult
 from ...core.exceptions import CommandError
 
 class DOSAttackCommand(Command):
@@ -8,16 +8,17 @@ class DOSAttackCommand(Command):
     def __init__(self, player_service):
         super().__init__("dos_attack", "Temporarily locks an opponent's CPU.", "dos_attack <target_player>")
         self.player_service = player_service
+        self.heat_cost = 40.0 # High heat cost for attack
 
-    def execute(self, player, args):
+    def execute(self, player, args, context=None):
         if len(args) != 1:
-            raise CommandError("Usage: dos_attack <target_player>")
+            return CommandResult(success=False, error="Usage: dos_attack <target_player>")
 
         target_player_name = args[0]
         target_player = self.player_service.get_player_by_name(target_player_name)
 
         if not target_player:
-            raise CommandError(f"Player not found: {target_player_name}")
+            return CommandResult(success=False, error=f"Player not found: {target_player_name}")
 
         # In a real implementation, you would check if the players are in a PvP game mode
         # and if the target is a valid opponent.

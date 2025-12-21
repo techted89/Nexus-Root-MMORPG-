@@ -4,7 +4,10 @@ Simple HTTP server for the Game API
 
 import json
 import urllib.parse
+import gzip
+import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from io import BytesIO
 from ..api.game_api import GameAPI
 from ..api.admin_api import AdminAPI
 from ..api.auth_api import AuthAPI
@@ -17,6 +20,12 @@ from ..core.logger import NexusLogger
 class CustomAPIHandler(BaseHTTPRequestHandler):
     """HTTP handler for Game API requests"""
     
+    # Rate Limiting
+    # ip -> {"count": int, "reset_time": float}
+    _rate_limit_store = {}
+    RATE_LIMIT_WINDOW = 60 # seconds
+    RATE_LIMIT_MAX_REQUESTS = 100 # requests per window
+
     def __init__(self, *args, game_api: GameAPI = None, admin_api: AdminAPI = None, admin_auth_service: AdminAuthService = None, auth_api: AuthAPI = None, **kwargs):
         self.game_api = game_api
         self.admin_api = admin_api
@@ -24,6 +33,29 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         self.auth_api = auth_api
         super().__init__(*args, **kwargs)
     
+    def check_rate_limit(self) -> bool:
+        """Check if request is within rate limit"""
+        client_ip = self.client_address[0]
+        current_time = time.time()
+
+        if client_ip not in self._rate_limit_store:
+            self._rate_limit_store[client_ip] = {"count": 1, "reset_time": current_time + self.RATE_LIMIT_WINDOW}
+            return True
+
+        record = self._rate_limit_store[client_ip]
+
+        if current_time > record["reset_time"]:
+            # Reset window
+            record["count"] = 1
+            record["reset_time"] = current_time + self.RATE_LIMIT_WINDOW
+            return True
+
+        if record["count"] >= self.RATE_LIMIT_MAX_REQUESTS:
+            return False
+
+        record["count"] += 1
+        return True
+
     def is_admin_authenticated(self):
         """Check if the request is from an authenticated admin"""
         auth_header = self.headers.get("Authorization")
@@ -35,6 +67,10 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET requests"""
+        if not self.check_rate_limit():
+            self.send_error(429, "Too Many Requests")
+            return
+
         try:
             path_parts = self.path.split('?')
             path = path_parts[0]
@@ -61,7 +97,7 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
             elif path == "/api/announcement":
                 self.handle_get_announcement()
             elif path == "/admin/api/login":
-                self.handle_admin_login(data)
+                self.send_error(405, "Method Not Allowed")
             elif path == "/admin/api/players":
                 if not self.is_admin_authenticated():
                     self.send_error(401, "Unauthorized")
@@ -83,6 +119,10 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
     
     def do_POST(self):
         """Handle POST requests"""
+        if not self.check_rate_limit():
+            self.send_error(429, "Too Many Requests")
+            return
+
         try:
             content_length = int(self.headers.get('Content-Length', 0))
             post_data = self.rfile.read(content_length)
@@ -111,6 +151,8 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                 self.handle_logout(data)
             elif path == "/api/command/execute":
                 self.handle_execute_command(data)
+            elif path == "/api/script/execute":
+                self.handle_execute_script(data)
             elif path == "/api/mission/start":
                 self.handle_start_mission(data)
             elif path == "/api/mission/abandon":
@@ -121,6 +163,8 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                 self.handle_start_mining(data)
             elif path == "/api/mining/check":
                 self.handle_check_mining(data)
+            elif path == "/api/shop/verify":
+                self.handle_verify_purchase(data)
             elif path.startswith("/admin/api/players/"):
                 if not self.is_admin_authenticated():
                     self.send_error(401, "Unauthorized")
@@ -336,8 +380,10 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
                     const data = await response.json();
                     const responseLine = document.createElement('div');
                     responseLine.classList.add('line');
+                    // Check if response is wrapped
                     if (data.success) {
-                        responseLine.textContent = data.output;
+                        const output = data.data && data.data.output ? data.data.output : data.output;
+                        responseLine.textContent = output;
                     } else {
                         responseLine.textContent = `Error: ${data.error}`;
                     }
@@ -405,9 +451,6 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         if isinstance(name, list):
             name = name[0]
 
-        # The create_player method in the game_api expects a dictionary,
-        # but the form submission sends a dictionary where the values are lists.
-        # We need to convert the dictionary to the correct format.
         if isinstance(data, dict) and all(isinstance(v, list) for v in data.values()):
             data = {k: v[0] for k, v in data.items()}
         is_vip = data.get("is_vip", False)
@@ -441,12 +484,58 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
             return
 
         if not player_name:
-            # Get the player name from the session token
-            # This is a placeholder for a real implementation.
             player_name = "test_user"
         
+        # Execute command
         result = self.game_api.execute_command(player_name, command)
-        self.send_json_response(result)
+
+        if result.get("success"):
+            # Ensure response matches client expectation (data object wrapping results)
+            # Backend GameAPI returns { success, output, error, data: { ... } }
+            # Android expects ApiResponse where `data` is CommandResponse(output, animation_type)
+
+            # Construct the CommandResponse object structure
+            command_response = {
+                "output": result.get("output"),
+                "animation_type": result.get("data", {}).get("animation_type", "TEXT_ONLY")
+            }
+
+            # Wrap in ApiResponse structure
+            response = {
+                "success": True,
+                "data": command_response
+            }
+            self.send_json_response(response)
+        else:
+            self.send_json_response(result)
+
+    def handle_execute_script(self, data: dict):
+        """Handle script execution request"""
+        player_name = data.get("player_name")
+        script = data.get("script")
+
+        if not script:
+            self.send_json_response({"success": False, "error": "Missing script content"}, 400)
+            return
+
+        if not player_name:
+            player_name = "test_user"
+
+        result = self.game_api.execute_script(player_name, script)
+
+        if result.get("success"):
+            # Wrap output for client consistency
+            # Android expects data field
+            response = {
+                "success": True,
+                "data": {
+                    "output": result.get("output"),
+                    "animation_type": "TEXT_ONLY"
+                }
+            }
+            self.send_json_response(response)
+        else:
+            self.send_json_response(result)
     
     def handle_start_mission(self, data: dict):
         """Handle start mission request"""
@@ -505,6 +594,19 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
             return
         
         result = self.game_api.check_passive_mining(player_name)
+        self.send_json_response(result)
+
+    def handle_verify_purchase(self, data: dict):
+        """Handle purchase verification request"""
+        player_name = data.get("player_name")
+        token = data.get("purchase_token")
+        sku = data.get("sku")
+
+        if not player_name or not token or not sku:
+            self.send_json_response({"success": False, "error": "Missing parameters"}, 400)
+            return
+
+        result = self.game_api.verify_purchase(player_name, token, sku)
         self.send_json_response(result)
     
     def handle_get_all_players(self, search: str, sort: str, order: str):
@@ -583,17 +685,30 @@ class CustomAPIHandler(BaseHTTPRequestHandler):
         self.send_json_response(result)
 
     def send_json_response(self, data: dict, status_code: int = 200):
-        """Send JSON response"""
-        response_json = json.dumps(data, indent=2)
+        """Send JSON response with optional compression"""
+        response_json = json.dumps(data, indent=2).encode('utf-8')
         
         self.send_response(status_code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
         
-        self.wfile.write(response_json.encode('utf-8'))
+        # GZIP Compression
+        accept_encoding = self.headers.get("Accept-Encoding", "")
+        if "gzip" in accept_encoding and len(response_json) > 500: # Compress if > 500 bytes
+            buffer = BytesIO()
+            with gzip.GzipFile(fileobj=buffer, mode="wb") as f:
+                f.write(response_json)
+            compressed_data = buffer.getvalue()
+
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Content-Length", str(len(compressed_data)))
+            self.end_headers()
+            self.wfile.write(compressed_data)
+        else:
+            self.end_headers()
+            self.wfile.write(response_json)
     
     def do_OPTIONS(self):
         """Handle OPTIONS requests for CORS"""

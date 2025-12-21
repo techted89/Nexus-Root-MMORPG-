@@ -3,11 +3,13 @@ Game API for external integration and embedding
 """
 
 from typing import Dict, Any, List, Optional
+import time
 from ..services.player_service import PlayerService
 from ..services.command_service import CommandService
 from ..services.mission_service import MissionService
 from ..repositories.sqlite_player_repository import SQLitePlayerRepository
 from ..repositories.sqlite_mission_repository import SQLiteMissionRepository
+from ..models.blockchain import game_blockchain
 from ..core.events import EventBus
 from ..core.config import NexusConfig
 from ..core.exceptions import NexusException, ValidationError, AuthenticationError
@@ -36,6 +38,13 @@ class GameAPI:
         self.command_service = CommandService(self.event_bus, self.player_service)
         self.mission_service = MissionService(self.mission_repository, self.event_bus)
         
+        # Caching
+        self._leaderboard_cache = None
+        self._leaderboard_cache_time = 0
+        self._server_stats_cache = None
+        self._server_stats_cache_time = 0
+        self.CACHE_TTL = 30 # seconds
+
         # Setup event handlers
         self._setup_event_handlers()
         
@@ -219,6 +228,46 @@ class GameAPI:
                 "code": e.code
             }
     
+    def execute_script(self, player_name: str, script_content: str) -> Dict[str, Any]:
+        """Execute a full script for a player"""
+        try:
+            player = self.player_service.get_player_by_name(player_name)
+            if not player:
+                raise AuthenticationError("Player not found")
+
+            # Use parser and evaluator from nexus_script
+            from ..nexus_script.lexer import Lexer
+            from ..nexus_script.parser import Parser
+            from ..nexus_script.evaluator import Evaluator
+
+            lexer = Lexer(script_content)
+            parser = Parser(lexer)
+            program = parser.parse_program()
+
+            if parser.errors:
+                return {
+                    "success": False,
+                    "error": f"Parse errors: {parser.errors}",
+                    "output": "\n".join(parser.errors)
+                }
+
+            evaluator = Evaluator(player, command_service=self.command_service)
+            result_output = evaluator.eval(program)
+
+            self.player_service.repository.save(player)
+
+            return {
+                "success": True,
+                "output": str(result_output)
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "output": f"Script execution failed: {str(e)}"
+            }
+
     def get_available_commands(self, player_name: str) -> Dict[str, Any]:
         """Get available commands for a player"""
         try:
@@ -447,13 +496,24 @@ class GameAPI:
             }
     
     def get_leaderboard(self, category: str = "level", limit: int = 10) -> Dict[str, Any]:
-        """Get player leaderboard"""
+        """Get player leaderboard (Cached)"""
         try:
+            current_time = time.time()
+            if self._leaderboard_cache and (current_time - self._leaderboard_cache_time < self.CACHE_TTL):
+                return {
+                    "success": True,
+                    "data": self._leaderboard_cache,
+                    "cached": True
+                }
+
             leaderboard = self.player_service.get_leaderboard(limit, category)
+            self._leaderboard_cache = leaderboard
+            self._leaderboard_cache_time = current_time
             
             return {
                 "success": True,
-                "data": leaderboard
+                "data": leaderboard,
+                "cached": False
             }
         except NexusException as e:
             return {
@@ -463,8 +523,16 @@ class GameAPI:
             }
     
     def get_server_statistics(self) -> Dict[str, Any]:
-        """Get server statistics"""
+        """Get server statistics (Cached)"""
         try:
+            current_time = time.time()
+            if self._server_stats_cache and (current_time - self._server_stats_cache_time < self.CACHE_TTL):
+                return {
+                    "success": True,
+                    "data": self._server_stats_cache,
+                    "cached": True
+                }
+
             stats = {
                 "total_players": self.player_repository.count(),
                 "online_players": self.player_repository.count_online(),
@@ -472,9 +540,13 @@ class GameAPI:
                 "mission_statistics": self.mission_repository.get_mission_statistics()
             }
             
+            self._server_stats_cache = stats
+            self._server_stats_cache_time = current_time
+
             return {
                 "success": True,
-                "data": stats
+                "data": stats,
+                "cached": False
             }
         except NexusException as e:
             return {
@@ -483,6 +555,54 @@ class GameAPI:
                 "code": e.code
             }
     
+    # Blockchain API
+    def get_blockchain_status(self) -> Dict[str, Any]:
+        """Get current blockchain status"""
+        return {
+            "success": True,
+            "data": game_blockchain.to_dict()
+        }
+
+    # Shop API
+
+    def verify_purchase(self, player_name: str, purchase_token: str, sku: str) -> Dict[str, Any]:
+        """Verify a Google Play purchase"""
+        try:
+            player = self.player_service.get_player_by_name(player_name)
+            if not player:
+                raise AuthenticationError("Player not found")
+
+            # In a real implementation, we would validate with Google Play API here
+            # For simulation, we assume valid if token is present
+
+            self.logger.info(f"Verifying purchase for {player_name}: SKU={sku}, Token={purchase_token}")
+
+            reward_msg = ""
+            if sku == "nexus_coin_1000":
+                self.player_service.update_credits(player, 1000, "IAP: 1000 Coins")
+                reward_msg = "Added 1000 NexusCoins"
+            elif sku == "nexus_coin_5000":
+                self.player_service.update_credits(player, 5000, "IAP: 5000 Coins")
+                reward_msg = "Added 5000 NexusCoins"
+            elif sku == "nexus_vip_lifetime":
+                player.is_vip = True
+                self.player_service.repository.save(player)
+                reward_msg = "VIP Status Activated"
+            else:
+                return {"success": False, "error": "Unknown SKU"}
+
+            return {
+                "success": True,
+                "message": reward_msg,
+                "data": {"player": player.get_summary()}
+            }
+
+        except NexusException as e:
+            return {
+                "success": False,
+                "error": e.message
+            }
+
     # Utility Methods
     
     def validate_player_session(self, player_name: str, session_id: str) -> bool:

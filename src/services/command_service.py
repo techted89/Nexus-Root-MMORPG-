@@ -3,56 +3,17 @@ Command execution service
 """
 
 import time
-from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from ..models.player import Player
 from ..core.events import EventBus, Event, GameEvents
 from ..core.exceptions import CommandNotFoundError, InsufficientResourcesError, ScriptExecutionError, CommandError
 from ..core.logger import NexusLogger
-
-class CommandResult:
-    """Result of command execution"""
-    def __init__(self, success: bool, output: str = "", error: str = "", data: Dict[str, Any] = None):
-        self.success = success
-        self.output = output
-        self.error = error
-        self.data = data or {}
-        self.execution_time_ms: float = 0
-
-class Command(ABC):
-    """Abstract base class for commands"""
-    
-    def __init__(self, name: str, description: str, syntax: str):
-        self.name = name
-        self.description = description
-        self.syntax = syntax
-        self.requires_vip = False
-        self.min_level = 1
-        self.resource_cost = 0
-    
-    @abstractmethod
-    def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
-        """Execute the command"""
-        pass
-    
-    def can_execute(self, player: Player) -> tuple[bool, str]:
-        """Check if player can execute this command"""
-        if not player.knowledge_map.is_command_available(self.name):
-            return False, f"Command '{self.name}' is not available. Check your K-Map."
-        
-        if player.stats.level < self.min_level:
-            return False, f"Command requires level {self.min_level}"
-        
-        if self.requires_vip and not player.is_vip:
-            return False, f"Command '{self.name}' requires VIP access"
-        
-        if self.resource_cost > 0 and not player.can_afford(self.resource_cost):
-            return False, f"Command costs {self.resource_cost} credits"
-        
-        return True, "OK"
-
+from ..core.command import Command, CommandResult
+from ..nexus_script.commands.basic_commands import WhoamiCommand, EchoCommand, DateCommand
 from ..nexus_script.commands.dos_attack import DOSAttackCommand
+from ..nexus_script.commands.pvp_commands import InjectCommand, SiphonCommand
+from ..nexus_script.commands.item_commands import InventoryCommand, EquipCommand, UseCommand
 
 class SetCommand(Command):
     """Set variable command"""
@@ -62,17 +23,16 @@ class SetCommand(Command):
     
     def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
         if len(args) < 3 or args[1] != "=":
-            return CommandResult(False, error="Usage: set <variable> = <value>")
+            return CommandResult(False, error="Usage: set <variable> = <value>", animation_type="ERROR_SHAKE")
         
         var_name = args[0]
         value = " ".join(args[2:])
         
-        # Store in context (would normally be in execution environment)
         if context is None:
             context = {}
         context[var_name] = value
         
-        return CommandResult(True, f"Set {var_name} = {value}", data={"variable": var_name, "value": value})
+        return CommandResult(True, f"Set {var_name} = {value}", data={"variable": var_name, "value": value}, animation_type="TEXT_ONLY")
 
 class LsCommand(Command):
     """List directory contents command"""
@@ -81,7 +41,6 @@ class LsCommand(Command):
         super().__init__("ls", "List directory contents", "ls [directory]")
     
     def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
-        # Simulated file system
         files = ["data.txt", "log.txt", "config.cfg", "mission_brief.md"]
         
         if args and args[0] == "-la":
@@ -93,7 +52,7 @@ class LsCommand(Command):
         else:
             output = "  ".join(files)
         
-        return CommandResult(True, output, data={"files": files})
+        return CommandResult(True, output, data={"files": files}, animation_type="TEXT_ONLY")
 
 class CatCommand(Command):
     """Display file contents command"""
@@ -103,11 +62,10 @@ class CatCommand(Command):
     
     def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
         if not args:
-            return CommandResult(False, error="Usage: cat <filename>")
+            return CommandResult(False, error="Usage: cat <filename>", animation_type="ERROR_SHAKE")
         
         filename = args[0]
         
-        # Simulated file contents
         file_contents = {
             "data.txt": "target_ip=192.168.1.100\nport=22\nservice=ssh",
             "log.txt": "Connection established\nScanning ports...\nVulnerability found",
@@ -116,9 +74,9 @@ class CatCommand(Command):
         }
         
         if filename not in file_contents:
-            return CommandResult(False, error=f"cat: {filename}: No such file or directory")
+            return CommandResult(False, error=f"cat: {filename}: No such file or directory", animation_type="ERROR_SHAKE")
         
-        return CommandResult(True, file_contents[filename], data={"filename": filename})
+        return CommandResult(True, file_contents[filename], data={"filename": filename}, animation_type="TEXT_ONLY")
 
 class ScanCommand(Command):
     """Network scan command"""
@@ -126,19 +84,18 @@ class ScanCommand(Command):
     def __init__(self):
         super().__init__("scan", "Scan network targets", "scan <target>")
         self.min_level = 2
+        self.heat_cost = 15.0
     
     def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
         if not args:
-            return CommandResult(False, error="Usage: scan <target>")
+            return CommandResult(False, error="Usage: scan <target>", animation_type="ERROR_SHAKE")
         
         target = args[0]
         
-        # Simulate scan delay based on CPU tier
-        scan_time = 3.0 * player.virtual_computer.cpu.get_speed_multiplier()
+        scan_time = 3.0 * player.virtual_computer.get_cpu_speed()
         if not player.is_vip:
             time.sleep(scan_time)
         
-        # Simulated scan results
         ports = [22, 80, 443, 8080]
         services = ["ssh", "http", "https", "http-proxy"]
         
@@ -155,7 +112,8 @@ class ScanCommand(Command):
                 "open_ports": ports,
                 "services": services,
                 "scan_time": scan_time
-            }
+            },
+            animation_type="SCANNING_RADAR"
         )
 
 class HashcrackCommand(Command):
@@ -165,15 +123,15 @@ class HashcrackCommand(Command):
         super().__init__("hashcrack", "Crack password hashes", "hashcrack <hash>")
         self.min_level = 3
         self.resource_cost = 10
+        self.heat_cost = 25.0
     
     def execute(self, player: Player, args: List[str], context: Dict[str, Any] = None) -> CommandResult:
         if not args:
-            return CommandResult(False, error="Usage: hashcrack <hash>")
+            return CommandResult(False, error="Usage: hashcrack <hash>", animation_type="ERROR_SHAKE")
         
         hash_value = args[0]
         
-        # Simulate cracking time based on CPU tier
-        crack_time = 5.0 * player.virtual_computer.cpu.get_speed_multiplier()
+        crack_time = 5.0 * player.virtual_computer.get_cpu_speed()
         
         output = f"Cracking hash: {hash_value}\n"
         if player.is_vip:
@@ -182,7 +140,6 @@ class HashcrackCommand(Command):
             output += f"Estimated time: {crack_time:.1f}s\n"
             time.sleep(crack_time)
         
-        # Simulated password result
         password = "password123"
         output += f"Password found: {password}"
         
@@ -193,7 +150,8 @@ class HashcrackCommand(Command):
                 "hash": hash_value,
                 "password": password,
                 "crack_time": crack_time
-            }
+            },
+            animation_type="HACKING_MATRIX"
         )
 
 class CommandService:
@@ -206,7 +164,6 @@ class CommandService:
         self.commands: Dict[str, Command] = {}
         self.execution_context: Dict[str, Any] = {}
         
-        # Register built-in commands
         self._register_builtin_commands()
     
     def _register_builtin_commands(self):
@@ -217,28 +174,31 @@ class CommandService:
             CatCommand(),
             ScanCommand(),
             HashcrackCommand(),
-            DOSAttackCommand(self.player_service)
+            DOSAttackCommand(self.player_service),
+            WhoamiCommand(),
+            EchoCommand(),
+            DateCommand(),
+            InjectCommand(self.player_service),
+            SiphonCommand(self.player_service),
+            InventoryCommand(self.player_service),
+            EquipCommand(self.player_service),
+            UseCommand(self.player_service)
         ]
         
         for command in commands:
             self.register_command(command)
     
     def register_command(self, command: Command):
-        """Register a new command"""
         self.commands[command.name] = command
         self.logger.debug(f"Registered command: {command.name}")
     
     def get_command(self, name: str) -> Optional[Command]:
-        """Get command by name"""
         return self.commands.get(name)
     
     def get_available_commands(self, player: Player) -> List[Dict[str, Any]]:
-        """Get list of available commands for player"""
         available = []
-        
         for command in self.commands.values():
             can_execute, reason = command.can_execute(player)
-            
             available.append({
                 "name": command.name,
                 "description": command.description,
@@ -247,56 +207,54 @@ class CommandService:
                 "reason": reason if not can_execute else None,
                 "requires_vip": command.requires_vip,
                 "min_level": command.min_level,
-                "resource_cost": command.resource_cost
+                "resource_cost": command.resource_cost,
+                "heat_cost": command.heat_cost
             })
-        
         return available
     
     def execute_command(self, player: Player, command_line: str) -> CommandResult:
         """Execute a command"""
         start_time = time.time()
         
-        # Parse command
         parts = command_line.strip().split()
         if not parts:
-            return CommandResult(False, error="No command specified")
+            return CommandResult(False, error="No command specified", animation_type="ERROR_SHAKE")
         
         command_name = parts[0]
         args = parts[1:] if len(parts) > 1 else []
         
         try:
-            # Check if player's CPU is locked
             if player.cpu_locked_until and player.cpu_locked_until > datetime.now():
                 raise CommandError(f"CPU is locked. Time remaining: {player.cpu_locked_until - datetime.now()}")
 
-            # Find command
             command = self.get_command(command_name)
             if not command:
                 raise CommandNotFoundError(f"Unknown command: {command_name}")
             
-            # Check permissions
+            # Check Heat
+            if player.virtual_computer.is_overheated():
+                return CommandResult(False, error="System Overheated! Wait for cooldown.", animation_type="ERROR_SHAKE")
+
             can_execute, reason = command.can_execute(player)
             if not can_execute:
-                return CommandResult(False, error=reason)
+                return CommandResult(False, error=reason, animation_type="ERROR_SHAKE")
             
-            # Charge resources if needed
             if command.resource_cost > 0:
                 if not player.can_afford(command.resource_cost):
                     raise InsufficientResourcesError(f"Command costs {command.resource_cost} credits")
                 player.update_credits(-command.resource_cost)
             
-            # Execute command
             result = command.execute(player, args, self.execution_context.copy())
             
-            # Calculate execution time
+            # Apply Heat Cost
+            player.virtual_computer.add_heat(command.heat_cost)
+
             end_time = time.time()
             result.execution_time_ms = (end_time - start_time) * 1000
             
-            # Update player stats
             player.stats.total_commands_executed += 1
             player.virtual_computer.total_commands_processed += 1
             
-            # Publish event
             self.event_bus.publish(Event(
                 GameEvents.COMMAND_EXECUTED,
                 {
@@ -305,7 +263,8 @@ class CommandService:
                     "command": command_name,
                     "args": args,
                     "success": result.success,
-                    "execution_time_ms": result.execution_time_ms
+                    "execution_time_ms": result.execution_time_ms,
+                    "animation_type": result.animation_type
                 },
                 source="command_service"
             ))
@@ -318,13 +277,11 @@ class CommandService:
             end_time = time.time()
             execution_time_ms = (end_time - start_time) * 1000
             
-            error_result = CommandResult(False, error=str(e))
+            error_result = CommandResult(False, error=str(e), animation_type="ERROR_SHAKE")
             error_result.execution_time_ms = execution_time_ms
             
-            # Log error
             self.logger.error(f"Command execution error: {player.name} -> {command_line} -> {str(e)}")
             
-            # Publish error event
             self.event_bus.publish(Event(
                 GameEvents.COMMAND_EXECUTED,
                 {
@@ -334,7 +291,8 @@ class CommandService:
                     "args": args,
                     "success": False,
                     "error": str(e),
-                    "execution_time_ms": execution_time_ms
+                    "execution_time_ms": execution_time_ms,
+                    "animation_type": "ERROR_SHAKE"
                 },
                 source="command_service"
             ))
@@ -342,17 +300,13 @@ class CommandService:
             return error_result
     
     def get_command_help(self, command_name: str = None) -> str:
-        """Get help for commands"""
         if command_name:
             command = self.get_command(command_name)
             if not command:
                 return f"Unknown command: {command_name}"
-            
             return f"{command.name}: {command.description}\nSyntax: {command.syntax}"
         
-        # List all commands
         output = "Available commands:\n"
         for command in sorted(self.commands.values(), key=lambda c: c.name):
             output += f"  {command.name:<15} - {command.description}\n"
-        
         return output

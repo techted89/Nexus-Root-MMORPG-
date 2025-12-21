@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:padding="8dp">
+
+    <!-- HUD / Status Bar -->
+    <LinearLayout
+        android:id="@+id/layoutStats"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="8dp"
+        android:background="#112211"
+        android:layout_marginBottom="8dp">
+
+    <Button
+        android:id="@+id/btnOpenEditor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open Script Editor"
+        android:backgroundTint="#003300"
+        android:textColor="#00FF00"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btnOpenShop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Open Shop"
+        android:backgroundTint="#443300"
+        android:textColor="#FFDD00"
+        android:layout_marginBottom="8dp"/>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvPlayerName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Guest"
+                android:textColor="#00FF00"
+                android:textStyle="bold"
+                android:fontFamily="monospace" />
+
+            <TextView
+                android:id="@+id/tvPlayerLevel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Lvl: 0"
+                android:textColor="#00FF00"
+                android:paddingEnd="16dp"
+                android:fontFamily="monospace" />
+
+            <TextView
+                android:id="@+id/tvPlayerCredits"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NXC: 0"
+                android:textColor="#FFFF00"
+                android:fontFamily="monospace" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="2dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HEAT:"
+                android:textColor="#FF5555"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:layout_marginEnd="4dp"/>
+
+            <ProgressBar
+                android:id="@+id/pbHeat"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_height="10dp"
+                android:layout_weight="1"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="#FF5555"/>
+
+            <TextView
+                android:id="@+id/tvHeatValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0%"
+                android:textColor="#FF5555"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                android:layout_marginStart="4dp"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvWalletAddress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Wallet: -"
+            android:textColor="#00AA00"
+            android:textSize="10sp"
+            android:fontFamily="monospace"
+            android:layout_marginTop="2dp"
+            android:singleLine="true"
+            android:ellipsize="middle"/>
+
+    </LinearLayout>
+
+    <!-- Content Wrapper for Terminal and Controls -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/layoutStats"
+        android:orientation="vertical">
+
+        <!-- Terminal Output -->
+        <TextView
+            android:id="@+id/tvOutput"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:text="Initializing..."
+            android:textColor="#00FF00"
+            android:fontFamily="monospace"
+            android:textSize="14sp"
+            android:scrollbars="vertical"
+            android:gravity="bottom"
+            android:background="#000000" />
+
+        <!-- Quick Command Bar -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="4dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnHistoryUp"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="▲"
+                    android:backgroundTint="#003300"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnHistoryDown"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="▼"
+                    android:backgroundTint="#003300"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="8dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="status"
+                    android:backgroundTint="#004400"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdScan"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="scan"
+                    android:backgroundTint="#004400"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdLs"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="ls"
+                    android:backgroundTint="#004400"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="help"
+                    android:backgroundTint="#004400"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="10sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdSlash"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="/"
+                    android:backgroundTint="#003300"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="12sp"/>
+
+                <Button
+                    style="@style/Widget.AppCompat.Button.Small"
+                    android:id="@+id/btnCmdDot"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="."
+                    android:backgroundTint="#003300"
+                    android:textColor="#00FF00"
+                    android:layout_marginEnd="4dp"
+                    android:textSize="12sp"/>
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Input Area -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=">"
+                android:textColor="#00FF00"
+                android:textSize="18sp"
+                android:paddingEnd="8dp"
+                android:layout_gravity="center_vertical"/>
+
+            <AutoCompleteTextView
+                android:id="@+id/etInput"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="..."
+                android:textColor="#00FF00"
+                android:textColorHint="#005500"
+                android:backgroundTint="#00FF00"
+                android:fontFamily="monospace"
+                android:inputType="textNoSuggestions"
+                android:completionThreshold="1"
+                android:maxLines="1" />
+
+            <Button
+                android:id="@+id/btnSend"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ENTER"
+                android:backgroundTint="#006600"
+                android:textColor="#00FF00" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Overlay Animations -->
+    <ImageView
+        android:id="@+id/overlayRadar"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        android:layout_centerInParent="true"
+        android:src="@mipmap/ic_launcher_round"
+        android:visibility="gone"
+        android:alpha="0.5"/>
+
+    <TextView
+        android:id="@+id/overlayHacking"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="0101010101"
+        android:gravity="center"
+        android:textColor="#00FF00"
+        android:textSize="24sp"
+        android:fontFamily="monospace"
+        android:visibility="gone"
+        android:background="#AA000000"/>
+
+</RelativeLayout>
